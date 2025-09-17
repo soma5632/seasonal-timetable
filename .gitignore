@@ -7,18 +7,45 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Dependency directories
+node_modules/
+.pnpm/
+dist/
+dist-ssr/
+build/
+.cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Vite cache
+.vite/
 
 # Editor directories and files
-.vscode/*
+.vscode/
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS-specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional: testing snapshots
+__snapshots__/
+coverage/
+
+# Optional: Mac system files
+.AppleDouble
+.LSOverride
