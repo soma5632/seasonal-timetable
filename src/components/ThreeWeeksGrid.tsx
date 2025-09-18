@@ -64,8 +64,28 @@ export default function ThreeWeeksGrid({
       <Table size="sm" variant="simple" minW="1000px">
         <Thead position="sticky" top={0} zIndex={1} bg={headerBg}>
           <Tr>
-            <Th position="sticky" left={0} zIndex={2} bg={headerBg}>コマ</Th>
-            <Th position="sticky" left="64px" zIndex={2} bg={headerBg}>時間</Th>
+            <Th
+              position="sticky"
+              left={0}
+              zIndex={2}
+              bg={headerBg}
+              minW="64px"
+              textAlign="center"
+              fontSize="sm"
+            >
+              コマ
+            </Th>
+            <Th
+              position="sticky"
+              left="64px"
+              zIndex={2}
+              bg={headerBg}
+              minW="120px"
+              textAlign="center"
+              fontSize="sm"
+            >
+              時間
+            </Th>
             {dates.map((date) => {
               const isClosedDay = closedDays.includes(date);
               return (
@@ -97,10 +117,27 @@ export default function ThreeWeeksGrid({
         <Tbody>
           {timeSlots.map((slotLabel, slotIndex) => (
             <Tr key={slotIndex}>
-              <Td position="sticky" left={0} zIndex={1} bg={stickyBg} fontWeight="semibold">
+              <Td
+                position="sticky"
+                left={0}
+                zIndex={1}
+                bg={stickyBg}
+                fontWeight="semibold"
+                minW="64px"
+                textAlign="center"
+                fontSize="sm"
+              >
                 {slotIndex + 1}
               </Td>
-              <Td position="sticky" left="64px" zIndex={1} bg={stickyBg}>
+              <Td
+                position="sticky"
+                left="64px"
+                zIndex={1}
+                bg={stickyBg}
+                minW="120px"
+                textAlign="center"
+                fontSize="sm"
+              >
                 {slotLabel}
               </Td>
 
@@ -109,7 +146,7 @@ export default function ThreeWeeksGrid({
                 const isClosedSlot = (closedSlots[date] || []).includes(slotIndex);
                 const isClosed = isClosedDay || isClosedSlot;
 
-                const lessonsForSlot = timetable[date]?.[slotIndex] || {};
+                const lessons = timetable[date]?.[slotIndex] || {};
                 const cellBg = isClosed ? "red.200" : undefined;
 
                 return (
@@ -131,7 +168,8 @@ export default function ThreeWeeksGrid({
 
                     <VStack align="stretch" spacing={2}>
                       {Array.from({ length: boothCount }).map((_, boothIndex) => {
-                        const lesson = (lessonsForSlot as { [boothIndex: number]: Lesson | null })[boothIndex] || null;
+                        const lesson: Lesson | null =
+                          (lessons as { [boothIndex: number]: Lesson | null })[boothIndex] || null;
                         const bg =
                           !isClosed && lesson?.students?.[0]?.subject
                             ? subjectColors[lesson.students[0].subject] || "gray.50"
