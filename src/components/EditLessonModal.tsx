@@ -16,7 +16,7 @@ import {
   IconButton,
   Tooltip,
 } from "@chakra-ui/react";
-import { Lesson } from "../pages/TimetableManager";
+import { Lesson, StudentSubject } from "../pages/TimetableManager";
 import { EditIcon } from "@chakra-ui/icons";
 
 const subjects = ["数学", "国語", "英語", "社会", "理科"];
@@ -40,20 +40,26 @@ export default function EditLessonModal({
 }: Props) {
   const [teacherMode, setTeacherMode] = useState<"select" | "input">("select");
   const [teacher, setTeacher] = useState("");
-  const [students, setStudents] = useState<{ name: string; subject: string; mode: "select" | "input" }[]>([
-    { name: "", subject: subjects[0], mode: "select" },
-  ]);
+  const [students, setStudents] = useState<
+    { name: string; subject: string; mode: "select" | "input" }[]
+  >([{ name: "", subject: subjects[0], mode: "select" }]);
 
   useEffect(() => {
     if (initialData) {
       setTeacher(initialData.teacher || "");
-      setTeacherMode(teacherOptions.includes(initialData.teacher) ? "select" : "input");
-      const mapped = (initialData.students.length > 0 ? initialData.students : [{ name: "", subject: subjects[0] }])
-        .map((s) => ({
-          name: s.name,
-          subject: s.subject,
-          mode: studentOptions.includes(s.name) ? "select" : "input",
-        }));
+      setTeacherMode(
+        teacherOptions.includes(initialData.teacher) ? "select" : "input"
+      );
+      const mapped = (initialData.students.length > 0
+        ? initialData.students
+        : [{ name: "", subject: subjects[0] }]
+      ).map((s) => ({
+        name: s.name,
+        subject: s.subject,
+        mode: (studentOptions.includes(s.name) ? "select" : "input") as
+          | "select"
+          | "input",
+      }));
       setStudents(mapped);
     } else {
       setTeacher("");
@@ -62,16 +68,26 @@ export default function EditLessonModal({
     }
   }, [initialData, isOpen, teacherOptions, studentOptions]);
 
-  const setStudentField = (index: number, field: "name" | "subject" | "mode", value: string) => {
+  const setStudentField = (
+    index: number,
+    field: "name" | "subject" | "mode",
+    value: string
+  ) => {
     const updated = [...students];
-    // @ts-expect-error
-    updated[index][field] = value;
+    if (field === "mode") {
+      updated[index][field] = value as "select" | "input";
+    } else {
+      updated[index][field] = value;
+    }
     setStudents(updated);
   };
 
   const addStudent = () => {
     if (students.length < 2) {
-      setStudents([...students, { name: "", subject: subjects[0], mode: "select" }]);
+      setStudents([
+        ...students,
+        { name: "", subject: subjects[0], mode: "select" },
+      ]);
     }
   };
 
@@ -106,7 +122,9 @@ export default function EditLessonModal({
                   onChange={(e) => setTeacher(e.target.value)}
                 >
                   {teacherOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </Select>
               ) : (
@@ -116,11 +134,19 @@ export default function EditLessonModal({
                   onChange={(e) => setTeacher(e.target.value)}
                 />
               )}
-              <Tooltip label={teacherMode === "select" ? "手入力に切替" : "プルダウンに切替"}>
+              <Tooltip
+                label={
+                  teacherMode === "select" ? "手入力に切替" : "プルダウンに切替"
+                }
+              >
                 <IconButton
                   aria-label="toggle-teacher-mode"
                   icon={<EditIcon />}
-                  onClick={() => setTeacherMode(teacherMode === "select" ? "input" : "select")}
+                  onClick={() =>
+                    setTeacherMode(
+                      teacherMode === "select" ? "input" : "select"
+                    )
+                  }
                 />
               </Tooltip>
             </HStack>
@@ -133,37 +159,62 @@ export default function EditLessonModal({
                     <Select
                       placeholder="生徒を選択"
                       value={studentOptions.includes(s.name) ? s.name : ""}
-                      onChange={(e) => setStudentField(idx, "name", e.target.value)}
+                      onChange={(e) =>
+                        setStudentField(idx, "name", e.target.value)
+                      }
                     >
                       {studentOptions.map((n) => (
-                        <option key={n} value={n}>{n}</option>
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
                       ))}
                     </Select>
                   ) : (
                     <Input
                       placeholder={`生徒${idx + 1}の名前`}
                       value={s.name}
-                      onChange={(e) => setStudentField(idx, "name", e.target.value)}
+                      onChange={(e) =>
+                        setStudentField(idx, "name", e.target.value)
+                      }
                     />
                   )}
-                  <Tooltip label={s.mode === "select" ? "手入力に切替" : "プルダウンに切替"}>
+                  <Tooltip
+                    label={
+                      s.mode === "select" ? "手入力に切替" : "プルダウンに切替"
+                    }
+                  >
                     <IconButton
                       aria-label={`toggle-student-${idx}-mode`}
                       icon={<EditIcon />}
-                      onClick={() => setStudentField(idx, "mode", s.mode === "select" ? "input" : "select")}
+                      onClick={() =>
+                        setStudentField(
+                          idx,
+                          "mode",
+                          s.mode === "select" ? "input" : "select"
+                        )
+                      }
                     />
                   </Tooltip>
                 </HStack>
                 <Select
                   value={s.subject}
-                  onChange={(e) => setStudentField(idx, "subject", e.target.value)}
+                  onChange={(e) =>
+                    setStudentField(idx, "subject", e.target.value)
+                  }
                 >
                   {subjects.map((subj) => (
-                    <option key={subj} value={subj}>{subj}</option>
+                    <option key={subj} value={subj}>
+                      {subj}
+                    </option>
                   ))}
                 </Select>
                 {students.length > 1 && (
-                  <Button size="sm" colorScheme="red" variant="outline" onClick={() => removeStudent(idx)}>
+                  <Button
+                    size="sm"
+                    colorScheme="red"
+                    variant="outline"
+                    onClick={() => removeStudent(idx)}
+                  >
                     生徒{idx + 1}を削除
                   </Button>
                 )}

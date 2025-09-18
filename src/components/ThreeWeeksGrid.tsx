@@ -13,10 +13,10 @@ import {
   HStack,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { Lesson, Timetable } from "../pages/TimetableManager";
+import { Lesson, Timetable, StudentSubject } from "../pages/TimetableManager";
 
 type Props = {
-  dates: string[]; // YYYY-MM-DD[]
+  dates: string[];
   boothCount: number;
   timeSlots: string[];
   timetable: Timetable;
@@ -109,7 +109,7 @@ export default function ThreeWeeksGrid({
                 const isClosedSlot = (closedSlots[date] || []).includes(slotIndex);
                 const isClosed = isClosedDay || isClosedSlot;
 
-                const lessons = timetable[date]?.[slotIndex] || {};
+                const lessonsForSlot = timetable[date]?.[slotIndex] || {};
                 const cellBg = isClosed ? "red.200" : undefined;
 
                 return (
@@ -131,7 +131,7 @@ export default function ThreeWeeksGrid({
 
                     <VStack align="stretch" spacing={2}>
                       {Array.from({ length: boothCount }).map((_, boothIndex) => {
-                        const lesson: Lesson | null = lessons[boothIndex] || null;
+                        const lesson = (lessonsForSlot as { [boothIndex: number]: Lesson | null })[boothIndex] || null;
                         const bg =
                           !isClosed && lesson?.students?.[0]?.subject
                             ? subjectColors[lesson.students[0].subject] || "gray.50"
@@ -173,7 +173,7 @@ export default function ThreeWeeksGrid({
                             ) : lesson ? (
                               <Box mt={1}>
                                 <Text fontWeight="semibold">先生: {lesson.teacher}</Text>
-                                {lesson.students.map((s, i) => (
+                                {lesson.students.map((s: StudentSubject, i: number) => (
                                   <Text key={i} fontSize="sm">
                                     {s.name}（{s.subject}）
                                   </Text>
