@@ -61,7 +61,7 @@ export default function ThreeWeeksGrid({
 
   return (
     <Box overflowX="auto" borderWidth="1px" borderRadius="md">
-      <Table size="sm" variant="simple" minW="1000px">
+      <Table size="sm" variant="simple" minW="900px">
         <Thead position="sticky" top={0} zIndex={1} bg={headerBg}>
           <Tr>
             <Th
@@ -69,35 +69,38 @@ export default function ThreeWeeksGrid({
               left={0}
               zIndex={2}
               bg={headerBg}
-              minW="64px"
+              width="64px"
               textAlign="center"
-              fontSize="sm"
+              fontSize="xs"
+              px={1}
             >
               コマ
             </Th>
             <Th
               position="sticky"
-              left="64px"
+              left="20px"
               zIndex={2}
               bg={headerBg}
-              minW="120px"
+              width="96px"
               textAlign="center"
-              fontSize="sm"
+              fontSize="xs"
+              px={1}
             >
               時間
             </Th>
             {dates.map((date) => {
               const isClosedDay = closedDays.includes(date);
               return (
-                <Th key={date} minW="280px" textAlign="center" verticalAlign="top">
+                <Th key={date} minW="240px" textAlign="center" verticalAlign="top" fontSize="xs">
                   <VStack spacing={1}>
-                    <Text fontWeight="bold">{prettyDateLabel(date)}</Text>
+                    <Text fontWeight="bold" fontSize="sm">{prettyDateLabel(date)}</Text>
                     <Checkbox
                       isChecked={isClosedDay}
                       onChange={() => onToggleClosedDay(date)}
                       colorScheme="red"
+                      size="sm"
                     >
-                      全日休校
+                      休校
                     </Checkbox>
                     <Button
                       size="xs"
@@ -105,7 +108,7 @@ export default function ThreeWeeksGrid({
                       colorScheme="gray"
                       onClick={() => onClearDay(date)}
                     >
-                      この日の授業を全消去
+                      全消去
                     </Button>
                   </VStack>
                 </Th>
@@ -122,21 +125,22 @@ export default function ThreeWeeksGrid({
                 left={0}
                 zIndex={1}
                 bg={stickyBg}
-                fontWeight="semibold"
-                minW="64px"
+                width="64px"
                 textAlign="center"
-                fontSize="sm"
+                fontSize="xs"
+                px={1}
               >
                 {slotIndex + 1}
               </Td>
               <Td
                 position="sticky"
-                left="64px"
+                left="20px"
                 zIndex={1}
                 bg={stickyBg}
-                minW="120px"
+                width="96px"
                 textAlign="center"
-                fontSize="sm"
+                fontSize="xs"
+                px={1}
               >
                 {slotLabel}
               </Td>
@@ -150,10 +154,10 @@ export default function ThreeWeeksGrid({
                 const cellBg = isClosed ? "red.200" : undefined;
 
                 return (
-                  <Td key={`${date}-${slotIndex}`} bg={cellBg} verticalAlign="top">
+                  <Td key={`${date}-${slotIndex}`} bg={cellBg} verticalAlign="top" fontSize="xs">
                     <HStack justify="space-between" align="center" mb={1}>
                       <Text fontSize="xs" color={isClosed ? "red.800" : "gray.500"}>
-                        {isClosed ? "休校" : "編集 / 操作"}
+                        {isClosed ? "休校" : "編集"}
                       </Text>
                       <Checkbox
                         size="sm"
@@ -161,9 +165,7 @@ export default function ThreeWeeksGrid({
                         isChecked={isClosedSlot}
                         isDisabled={isClosedDay}
                         onChange={() => onToggleClosedSlot(date, slotIndex)}
-                      >
-                        休校
-                      </Checkbox>
+                      />
                     </HStack>
 
                     <VStack align="stretch" spacing={2}>
@@ -180,7 +182,7 @@ export default function ThreeWeeksGrid({
                         return (
                           <Box
                             key={boothIndex}
-                            p={2}
+                            p={1}
                             borderWidth="1px"
                             borderRadius="md"
                             bg={bg}
@@ -190,7 +192,7 @@ export default function ThreeWeeksGrid({
                             }}
                           >
                             <HStack justify="space-between" align="start">
-                              <Text fontWeight="bold">ブース{boothIndex + 1}</Text>
+                              <Text fontWeight="bold" fontSize="xs">B{boothIndex + 1}</Text>
                               {!isClosed && lesson && (
                                 <Button
                                   size="xs"
@@ -210,9 +212,9 @@ export default function ThreeWeeksGrid({
                               <Text color="red.800" mt={1} fontWeight="bold">休校</Text>
                             ) : lesson ? (
                               <Box mt={1}>
-                                <Text fontWeight="semibold">先生: {lesson.teacher}</Text>
+                                <Text fontWeight="semibold" fontSize="xs">先生: {lesson.teacher}</Text>
                                 {lesson.students.map((s: StudentSubject, i: number) => (
-                                  <Text key={i} fontSize="sm">
+                                  <Text key={i} fontSize="xs">
                                     {s.name}（{s.subject}）
                                   </Text>
                                 ))}
