@@ -1,5 +1,4 @@
 import {
-  Box,
   Table,
   Thead,
   Tbody,
@@ -7,152 +6,124 @@ import {
   Th,
   Td,
   IconButton,
-  HStack,
+  Box,
   Text,
   Tooltip,
-  useColorModeValue,
+  Checkbox,
 } from "@chakra-ui/react";
-import { ChevronLeftIcon, ChevronRightIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
-import { Lesson, Timetable, timeSlots } from "../pages/TimetableManager";
+import { DeleteIcon } from "@chakra-ui/icons";
+import { Lesson, StudentSubject } from "../pages/TimetableManager";
 
 type Props = {
-  dates: string[]; // YYYY-MM-DD[]
   timeSlots: string[];
-  timetable: Timetable;
-  onEdit: (date: string, slotIndex: number) => void;
-  onClearCell: (date: string, slotIndex: number) => void;
-  onCopy: (fromDate: string, slotIndex: number, toDate: string) => void;
+  boothCount: number;
+  lessons: { [slotIndex: number]: { [boothIndex: number]: Lesson | null } };
+  onEdit: (slot: number, booth: number) => void;
+  onClear: (slot: number, booth: number) => void;
+  closedDay?: boolean;
+  closedSlots?: number[];
+  onToggleClosedSlot?: (slot: number) => void;
 };
 
-const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+const subjectColors: Record<string, string> = {
+  数学: "blue.100",
+  国語: "pink.100",
+  英語: "green.100",
+  社会: "yellow.100",
+  理科: "purple.100",
+};
 
-function prettyDateLabel(dateStr: string) {
-  const d = new Date(dateStr);
-  const m = d.getMonth() + 1;
-  const dd = d.getDate();
-  const w = weekdays[d.getDay()];
-  return `${m}/${dd}(${w})`;
-}
-
-function CellContent({ value }: { value: Lesson | null }) {
-  if (!value) return <Text color="gray.400">—</Text>;
-  return (
-    <Box>
-      <Text fontWeight="semibold" fontSize="sm">先生: {value.teacher || "未設定"}</Text>
-      {value.students.map((s, i) => (
-        <Text key={i} fontSize="sm">
-          {s.name || "生徒"}（{s.subject}）
-        </Text>
-      ))}
-    </Box>
-  );
-}
-
-export default function TimetableGrid({
-  dates,
+export default function BoothTimetableGrid({
   timeSlots,
-  timetable,
+  boothCount,
+  lessons,
   onEdit,
-  onClearCell,
-  onCopy,
+  onClear,
+  closedDay,
+  closedSlots,
+  onToggleClosedSlot,
 }: Props) {
-  const headerBg = useColorModeValue("gray.50", "gray.700");
-  const stickyBg = useColorModeValue("white", "gray.800");
-
   return (
-    <Box overflowX="auto" borderWidth="1px" borderRadius="md">
-      <Table size="sm" variant="simple" minW="900px">
-        <Thead position="sticky" top={0} zIndex={1} bg={headerBg}>
-          <Tr>
-            <Th position="sticky" left={0} zIndex={2} bg={headerBg}>コマ</Th>
-            <Th position="sticky" left="64px" zIndex={2} bg={headerBg}>時間</Th>
-            {dates.map((d) => (
-              <Th key={d} minW="220px" textAlign="center">
-                {prettyDateLabel(d)}
-              </Th>
-            ))}
-          </Tr>
-        </Thead>
-        <Tbody>
-          {timeSlots.map((slotLabel, slotIndex) => (
-            <Tr key={slotIndex}>
-              <Td position="sticky" left={0} zIndex={1} bg={stickyBg} fontWeight="semibold">
-                {slotIndex + 1}
+    <Table variant="simple" size="sm">
+      <Thead>
+        <Tr>
+          <Th>コマ</Th>
+          <Th>時間</Th>
+          <Th>休校</Th>
+          {Array.from({ length: boothCount }).map((_, b) => (
+            <Th key={b}>ブース{b + 1}</Th>
+          ))}
+        </Tr>
+      </Thead>
+      <Tbody>
+        {timeSlots.map((time, slot) => {
+          const isClosedSlot = closedDay || closedSlots?.includes(slot);
+          return (
+            <Tr key={slot}>
+              <Td>{slot + 1}</Td>
+              <Td>{time}</Td>
+              <Td>
+                <Checkbox
+                  isChecked={closedSlots?.includes(slot)}
+                  onChange={() => onToggleClosedSlot && onToggleClosedSlot(slot)}
+                  isDisabled={closedDay}
+                />
               </Td>
-              <Td position="sticky" left="64px" zIndex={1} bg={stickyBg}>
-                {slotLabel}
-              </Td>
-              {dates.map((date, colIndex) => {
-                const value = timetable[date]?.[slotIndex] ?? null;
-                const prevDate = dates[colIndex - 1];
-                const nextDate = dates[colIndex + 1];
-                return (
-                  <Td key={date} verticalAlign="top">
-                    <HStack justify="space-between" mb={1}>
-                      <Text fontSize="xs" color="gray.500">編集 / 操作</Text>
-                      <HStack spacing={1}>
-                        {prevDate && (
-                          <Tooltip label="前日にコピー">
-                            <IconButton
-                              aria-label="copy-from-prev"
-                              icon={<ChevronLeftIcon />}
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => onCopy(prevDate, slotIndex, date)}
-                            />
-                          </Tooltip>
-                        )}
-                        {nextDate && (
-                          <Tooltip label="翌日にコピー">
-                            <IconButton
-                              aria-label="copy-to-next"
-                              icon={<ChevronRightIcon />}
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => onCopy(date, slotIndex, nextDate)}
-                            />
-                          </Tooltip>
-                        )}
-                        <Tooltip label="このセルを空にする">
-                          <IconButton
-                            aria-label="clear"
-                            icon={<DeleteIcon />}
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => onClearCell(date, slotIndex)}
-                          />
-                        </Tooltip>
-                      </HStack>
-                    </HStack>
+              {Array.from({ length: boothCount }).map((_, booth) => {
+                const lesson = lessons?.[slot]?.[booth] as Lesson | null;
+                const subject = lesson?.students?.[0]?.subject;
+                const bg = isClosedSlot
+                  ? "red.200"
+                  : subject
+                  ? subjectColors[subject] || "gray.50"
+                  : "gray.50";
 
+                return (
+                  <Td key={booth} bg={bg}>
                     <Box
                       p={2}
                       borderWidth="1px"
                       borderRadius="md"
-                      cursor="pointer"
-                      _hover={{ borderColor: "teal.400" }}
-                      onClick={() => onEdit(date, slotIndex)}
+                      cursor={isClosedSlot ? "not-allowed" : "pointer"}
+                      onClick={() => {
+                        if (!isClosedSlot) onEdit(slot, booth);
+                      }}
                     >
-                      <CellContent value={value} />
+                      {isClosedSlot ? (
+                        <Text color="red.800" fontWeight="bold">
+                          休校
+                        </Text>
+                      ) : lesson ? (
+                        <>
+                          <Text fontWeight="bold">{lesson.teacher}</Text>
+                          {lesson.students.map((s: StudentSubject, idx: number) => (
+                            <Text key={idx} fontSize="sm">
+                              {s.name}（{s.subject}）
+                            </Text>
+                          ))}
+                        </>
+                      ) : (
+                        <Text color="gray.400">未設定</Text>
+                      )}
                     </Box>
-
-                    {/* 任意：同日の他コマへコピーなどの拡張ボタン例
-                    <HStack mt={2} spacing={1}>
-                      <IconButton
-                        aria-label="copy"
-                        icon={<CopyIcon />}
-                        size="xs"
-                        onClick={() => {/* 将来: 同日の別コマへコピー */ /*}}
-                      />
-                    </HStack>
-                    */}
+                    {!isClosedSlot && lesson && (
+                      <Tooltip label="このブースの授業を消去">
+                        <IconButton
+                          aria-label="clear"
+                          icon={<DeleteIcon />}
+                          size="xs"
+                          mt={1}
+                          onClick={() => onClear(slot, booth)}
+                        />
+                      </Tooltip>
+                    )}
                   </Td>
                 );
               })}
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
+          );
+        })}
+      </Tbody>
+    </Table>
   );
 }
