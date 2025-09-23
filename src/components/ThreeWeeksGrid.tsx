@@ -1,19 +1,6 @@
-import {
-  Box,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Text,
-  Checkbox,
-  Button,
-  VStack,
-  HStack,
-  useColorModeValue,
-} from "@chakra-ui/react";
-import { Lesson, Timetable, StudentSubject } from "../pages/TimetableManager";
+import React from "react";
+import { Box, Button, VStack, Text } from "@chakra-ui/react";
+import { Timetable, Lesson } from "../pages/TimetableManager";
 
 type Props = {
   dates: string[];
@@ -29,20 +16,6 @@ type Props = {
   onClearDay: (date: string) => void;
 };
 
-const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-function prettyDateLabel(dateStr: string) {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`;
-}
-
-const subjectColors: Record<string, string> = {
-  数学: "blue.100",
-  国語: "pink.100",
-  英語: "green.100",
-  社会: "yellow.100",
-  理科: "purple.100",
-};
-
 export default function ThreeWeeksGrid({
   dates,
   boothCount,
@@ -56,183 +29,162 @@ export default function ThreeWeeksGrid({
   onClear,
   onClearDay,
 }: Props) {
-  const headerBg = useColorModeValue("gray.50", "gray.700");
-  const stickyBg = useColorModeValue("white", "gray.800");
-
   return (
-    <Box overflowX="auto" borderWidth="1px" borderRadius="md">
-      <Table size="sm" variant="simple" minW="900px">
-        <Thead position="sticky" top={0} zIndex={1} bg={headerBg}>
-          <Tr>
-            <Th
-              position="sticky"
-              left={0}
-              zIndex={2}
-              bg={headerBg}
-              width="64px"
-              textAlign="center"
-              fontSize="xs"
-              px={1}
-            >
-              コマ
-            </Th>
-            <Th
-              position="sticky"
-              left="20px"
-              zIndex={2}
-              bg={headerBg}
-              width="96px"
-              textAlign="center"
-              fontSize="xs"
-              px={1}
-            >
-              時間
-            </Th>
-            {dates.map((date) => {
-              const isClosedDay = closedDays.includes(date);
-              return (
-                <Th key={date} minW="240px" textAlign="center" verticalAlign="top" fontSize="xs">
-                  <VStack spacing={1}>
-                    <Text fontWeight="bold" fontSize="sm">{prettyDateLabel(date)}</Text>
-                    <Checkbox
-                      isChecked={isClosedDay}
-                      onChange={() => onToggleClosedDay(date)}
-                      colorScheme="red"
-                      size="sm"
-                    >
-                      休校
-                    </Checkbox>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      colorScheme="gray"
-                      onClick={() => onClearDay(date)}
-                    >
-                      全消去
-                    </Button>
-                  </VStack>
-                </Th>
-              );
-            })}
-          </Tr>
-        </Thead>
-
-        <Tbody>
+    <Box overflowX="auto">
+      <table className="timetable-table">
+        <thead>
+          <tr>
+            {dates.map((date) => (
+              <th key={date}>
+                <VStack spacing={1}>
+                  <Text fontWeight="bold">{date}</Text>
+                  <Button
+                    size="xs"
+                    colorScheme={closedDays.includes(date) ? "red" : "gray"}
+                    onClick={() => onToggleClosedDay(date)}
+                  >
+                    {closedDays.includes(date) ? "開校" : "休校"}
+                  </Button>
+                  <Button
+                    size="xs"
+                    colorScheme="yellow"
+                    onClick={() => onClearDay(date)}
+                  >
+                    全消去
+                  </Button>
+                </VStack>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
           {timeSlots.map((slotLabel, slotIndex) => (
-            <Tr key={slotIndex}>
-              <Td
-                position="sticky"
-                left={0}
-                zIndex={1}
-                bg={stickyBg}
-                width="64px"
-                textAlign="center"
-                fontSize="xs"
-                px={1}
-              >
-                {slotIndex + 1}
-              </Td>
-              <Td
-                position="sticky"
-                left="20px"
-                zIndex={1}
-                bg={stickyBg}
-                width="96px"
-                textAlign="center"
-                fontSize="xs"
-                px={1}
-              >
-                {slotLabel}
-              </Td>
-
+            <tr key={slotIndex}>
               {dates.map((date) => {
                 const isClosedDay = closedDays.includes(date);
-                const isClosedSlot = (closedSlots[date] || []).includes(slotIndex);
-                const isClosed = isClosedDay || isClosedSlot;
-
-                const lessons = timetable[date]?.[slotIndex] || {};
-                const cellBg = isClosed ? "red.200" : undefined;
+                const isClosedSlot =
+                  closedSlots[date]?.includes(slotIndex) ?? false;
 
                 return (
-                  <Td key={`${date}-${slotIndex}`} bg={cellBg} verticalAlign="top" fontSize="xs">
-                    <HStack justify="space-between" align="center" mb={1}>
-                      <Text fontSize="xs" color={isClosed ? "red.800" : "gray.500"}>
-                        {isClosed ? "休校" : "編集"}
-                      </Text>
-                      <Checkbox
-                        size="sm"
-                        colorScheme="red"
-                        isChecked={isClosedSlot}
-                        isDisabled={isClosedDay}
-                        onChange={() => onToggleClosedSlot(date, slotIndex)}
-                      />
-                    </HStack>
-
-                    <VStack align="stretch" spacing={2}>
-                      {Array.from({ length: boothCount }).map((_, boothIndex) => {
-                        const lesson: Lesson | null =
-                          (lessons as { [boothIndex: number]: Lesson | null })[boothIndex] || null;
-                        const bg =
-                          !isClosed && lesson?.students?.[0]?.subject
-                            ? subjectColors[lesson.students[0].subject] || "gray.50"
-                            : isClosed
-                            ? "red.200"
-                            : "gray.50";
-
-                        return (
-                          <Box
-                            key={boothIndex}
-                            p={1}
-                            borderWidth="1px"
-                            borderRadius="md"
-                            bg={bg}
-                            cursor={isClosed ? "not-allowed" : "pointer"}
-                            onClick={() => {
-                              if (!isClosed) onEdit(date, slotIndex, boothIndex);
-                            }}
-                          >
-                            <HStack justify="space-between" align="start">
-                              <Text fontWeight="bold" fontSize="xs">B{boothIndex + 1}</Text>
-                              {!isClosed && lesson && (
-                                <Button
-                                  size="xs"
-                                  colorScheme="gray"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onClear(date, slotIndex, boothIndex);
-                                  }}
-                                >
-                                  消去
-                                </Button>
+                  <td
+                    key={date + slotIndex}
+                    className={
+                      isClosedDay
+                        ? "closed-day"
+                        : isClosedSlot
+                        ? "closed-slot"
+                        : ""
+                    }
+                  >
+                    <VStack spacing={1}>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        colorScheme={isClosedSlot ? "red" : "gray"}
+                        onClick={() => onToggleClosedSlot(date, slotIndex)}
+                      >
+                        {slotLabel}
+                      </Button>
+                      <div className="booth-row">
+                        {Array.from({ length: boothCount }).map((_, boothIndex) => {
+                          const lesson: Lesson | null =
+                            timetable[date]?.[slotIndex]?.[boothIndex] || null;
+                          return (
+                            <div
+                              key={boothIndex}
+                              className="booth-cell"
+                              onClick={() => onEdit(date, slotIndex, boothIndex)}
+                            >
+                              {lesson ? (
+                                <div>
+                                  <strong>{lesson.teacher}</strong>
+                                  <br />
+                                  {lesson.students
+                                    .map((s) => `${s.name}(${s.subject})`)
+                                    .join(", ")}
+                                  <Button
+                                    size="xs"
+                                    colorScheme="red"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onClear(date, slotIndex, boothIndex);
+                                    }}
+                                  >
+                                    ×
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="empty">＋</span>
                               )}
-                            </HStack>
-
-                            {isClosed ? (
-                              <Text color="red.800" mt={1} fontWeight="bold">休校</Text>
-                            ) : lesson ? (
-                              <Box mt={1}>
-                                <Text fontWeight="semibold" fontSize="xs">先生: {lesson.teacher}</Text>
-                                {lesson.students.map((s: StudentSubject, i: number) => (
-                                  <Text key={i} fontSize="xs">
-                                    {s.name}（{s.subject}）
-                                  </Text>
-                                ))}
-                              </Box>
-                            ) : (
-                              <Text color="gray.500" mt={1}>未設定</Text>
-                            )}
-                          </Box>
-                        );
-                      })}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </VStack>
-                  </Td>
+                  </td>
                 );
               })}
-            </Tr>
+            </tr>
           ))}
-        </Tbody>
-      </Table>
+        </tbody>
+      </table>
+
+      <style jsx>{`
+        .timetable-table {
+          table-layout: fixed;
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th,
+        td {
+          border: 1px solid #ccc;
+          width: calc(100% / 6); /* 月〜土の6日分 */
+          vertical-align: top;
+          padding: 4px;
+        }
+        th {
+          background: #f5f5f5;
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
+        .booth-row {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .booth-cell {
+          background: #f0f8ff;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 2px;
+          cursor: pointer;
+          font-size: 0.8rem;
+        }
+        .booth-cell:hover {
+          background: #e0f0ff;
+        }
+        .empty {
+          color: #aaa;
+        }
+        .closed-day {
+          background: #ffe5e5;
+        }
+        .closed-slot {
+          background: #fff5e5;
+        }
+        @media (max-width: 768px) {
+          th,
+          td {
+            width: 100%;
+            display: block;
+          }
+          tr {
+            display: block;
+            margin-bottom: 1rem;
+          }
+        }
+      `}</style>
     </Box>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Home from './pages/Home';
-// import Holidays from './pages/Holidays'; // ← もう使わない
 import Students from './pages/Students';
 import Teachers from './pages/Teachers';
 // import Timetable from './pages/Timetable'; // ← これも置き換え

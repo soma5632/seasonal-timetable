@@ -63,14 +63,12 @@ function startOfWeekMonday(date: Date) {
   return d;
 }
 
-function generate3WeeksMonToSat(startMonday: Date) {
+function generate1WeekMonToSat(startMonday: Date) {
   const dates: string[] = [];
-  for (let w = 0; w < 3; w++) {
-    for (let dow = 0; dow < 6; dow++) {
-      const d = new Date(startMonday);
-      d.setDate(startMonday.getDate() + w * 7 + dow);
-      dates.push(toDateString(d));
-    }
+  for (let dow = 0; dow < 6; dow++) { // 月〜土
+    const d = new Date(startMonday);
+    d.setDate(startMonday.getDate() + dow);
+    dates.push(toDateString(d));
   }
   return dates;
 }
@@ -80,7 +78,7 @@ export default function TimetableManager() {
 
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
-  const dates = useMemo(() => generate3WeeksMonToSat(monday), [monday]);
+  const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]); // ← ここ変更
 
   const [timetable, setTimetable] = useState<Timetable>({});
   const [closedDays, setClosedDays] = useState<string[]>([]);
@@ -206,7 +204,7 @@ export default function TimetableManager() {
     <Box p={4}>
       <Heading size="lg" mb={2}>時間割管理</Heading>
       <Text fontSize="sm" color="gray.600" mb={4}>
-        開始日を選ぶと、その週の月曜から3週間ぶん（18日）を横に表示します。
+        開始日を選ぶと、その週の月曜から1週間ぶん（6日）を横に表示します。
       </Text>
 
       <HStack spacing={3} mb={4}>
