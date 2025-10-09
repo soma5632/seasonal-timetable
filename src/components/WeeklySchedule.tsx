@@ -9,8 +9,8 @@ type Lesson = {
   startTime: string;
   endTime: string;
   subject: string;
-  teacherId: string; // 名前をそのまま保存してもOK
-  studentId: string; // 使わないなら空文字でもOK
+  teacherId: string;
+  studentId: string;
   boothIndex: number;
   students?: { name: string; subject: string }[];
 };
@@ -21,10 +21,13 @@ type Schedule = {
   lessons: Lesson[];
 };
 
+type Teacher = { id: string; name: string };
+type Student = { id: string; name: string };
+
 type Props = {
   baseDate: string;
-  teachers: { id: string; name: string }[];
-  students: { id: string; name: string }[];
+  teachers: Teacher[];
+  students: Student[];
   schedules: Schedule[];
   onEdit?: (date: string, slotIndex: number, boothIndex: number) => void;
 };
@@ -116,19 +119,15 @@ const WeeklySchedule: React.FC<Props> = ({ baseDate, schedules, onEdit }) => {
 
       <style>{`
         .schedule-table {
-          table-layout: fixed;
-          width: 100%;
           border-collapse: collapse;
+          min-width: 900px; /* ← 横スクロール用に最低幅を設定 */
         }
         th, td {
           border: 1px solid #ccc;
-          width: calc(100% / 6);
-          vertical-align: top;
           padding: 4px;
           font-size: 0.85rem;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          white-space: nowrap; /* ← 折り返さず横スクロール */
+          text-align: left;
         }
         th {
           background: #f5f5f5;
