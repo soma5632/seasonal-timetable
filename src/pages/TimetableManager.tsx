@@ -8,14 +8,25 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import ThreeWeeksGrid from "../components/ThreeWeeksGrid";
+import WeeklySchedule from "../components/WeeklySchedule";
 import EditLessonModal from "../components/EditLessonModal";
 
-export type StudentSubject = { name: string; subject: string };
-
 export type Lesson = {
-  teacher: string;
-  students: StudentSubject[];
+  id: string;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  teacherId: string;
+  studentId: string;
+  boothIndex: number;
+  students: { name: string; subject: string }[];
+  subjects: string[];
+};
+
+export type Schedule = {
+  date: string;
+  isClosed?: boolean;
+  lessons: Lesson[];
 };
 
 export type Timetable = {
@@ -26,8 +37,7 @@ export type Timetable = {
   };
 };
 
-// 最終確定コマ時間
-export const timeSlots: string[] = [
+const timeSlots: string[] = [
   "10:00〜11:00",
   "11:10〜12:10",
   "13:20〜14:20",
@@ -41,7 +51,8 @@ export const timeSlots: string[] = [
 ];
 
 const BOOTH_COUNT = 5;
-const STORAGE_KEY = "timetable-3weeks-booth-closed";
+const STORAGE_KEY = "timetable-week-booth-closed";
+const DEV_MODE = true;
 
 function toDateString(d: Date) {
   const y = d.getFullYear();
@@ -65,7 +76,7 @@ function startOfWeekMonday(date: Date) {
 
 function generate1WeekMonToSat(startMonday: Date) {
   const dates: string[] = [];
-  for (let dow = 0; dow < 6; dow++) { // 月〜土
+  for (let dow = 0; dow < 6; dow++) {
     const d = new Date(startMonday);
     d.setDate(startMonday.getDate() + dow);
     dates.push(toDateString(d));
@@ -78,7 +89,7 @@ export default function TimetableManager() {
 
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
-  const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]); // ← ここ変更
+  const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]);
 
   const [timetable, setTimetable] = useState<Timetable>({});
   const [closedDays, setClosedDays] = useState<string[]>([]);
@@ -97,9 +108,10 @@ export default function TimetableManager() {
         const parsed = JSON.parse(saved);
         setTimetable(parsed.timetable || {});
         setClosedDays(parsed.closedDays || []);
-        setClosedSlots(parsed.closedSlots || []);
+        setClosedSlots(parsed.closedSlots || {});
       } catch {}
     }
+
     try {
       const tRaw = localStorage.getItem("teachers");
       if (tRaw) {
@@ -124,7 +136,23 @@ export default function TimetableManager() {
         for (let slot = 0; slot < timeSlots.length; slot++) {
           if (!next[date][slot]) next[date][slot] = {};
           for (let booth = 0; booth < BOOTH_COUNT; booth++) {
-            if (!(booth in next[date][slot])) next[date][slot][booth] = null;
+            if (!(booth in next[date][slot])) {
+              if (DEV_MODE) {
+                next[date][slot][booth] = {
+                  id: `${date}-${slot}-${booth}`,
+                  startTime: timeSlots[slot].split("〜")[0],
+                  endTime: timeSlots[slot].split("〜")[1],
+                  subject: "数学",
+                  teacherId: "T1",
+                  studentId: "S1",
+                  boothIndex: booth,
+                  students: [{ name: "テスト生徒", subject: "数学" }],
+                  subjects: ["数学"]
+                };
+              } else {
+                next[date][slot][booth] = null;
+              }
+            }
           }
         }
       });
@@ -146,13 +174,31 @@ export default function TimetableManager() {
 
   const handleSaveLesson = (lesson: Lesson) => {
     if (!editing) return;
+
+    // 名前からIDを引き直す（モーダルが名前を返す場合）
+    const teacherId =
+      teachers.find(t => t.id === lesson.teacherId || t.name === lesson.teacherId)?.id
+      || lesson.teacherId;
+    const studentId =
+      students.find(s => s.id === lesson.studentId || s.name === lesson.studentId)?.id
+      || lesson.studentId;
+
     setTimetable((prev) => ({
       ...prev,
       [editing.date]: {
         ...prev[editing.date],
         [editing.slot]: {
           ...prev[editing.date][editing.slot],
-          [editing.booth]: lesson,
+          [editing.booth]: {
+            ...lesson,
+            teacherId,
+            studentId,
+            boothIndex: editing.booth,
+            startTime: timeSlots[editing.slot].split("〜")[0],
+            endTime: timeSlots[editing.slot].split("〜")[1],
+            students: lesson.students ?? [],
+            subjects: lesson.subjects ?? []
+          },
         },
       },
     }));
@@ -160,45 +206,19 @@ export default function TimetableManager() {
     setEditing(null);
   };
 
-  const handleClearCell = (date: string, slot: number, booth: number) => {
-    setTimetable((prev) => ({
-      ...prev,
-      [date]: {
-        ...prev[date],
-        [slot]: {
-          ...prev[date][slot],
-          [booth]: null,
-        },
-      },
-    }));
-  };
-
-  const toggleClosedDay = (date: string) => {
-    setClosedDays((prev) =>
-      prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]
-    );
-  };
-
-  const toggleClosedSlot = (date: string, slot: number) => {
-    setClosedSlots((prev) => {
-      const daySlots = prev[date] || [];
-      const updated = daySlots.includes(slot)
-        ? daySlots.filter((s) => s !== slot)
-        : [...daySlots, slot];
-      return { ...prev, [date]: updated };
-    });
-  };
-
-  const clearDayLessons = (date: string) => {
-    const next: Timetable = { ...timetable };
+  const schedules: Schedule[] = dates.map((date) => {
+    const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
       for (let booth = 0; booth < BOOTH_COUNT; booth++) {
-        if (next[date]?.[slot]) next[date][slot][booth] = null;
+        const l = timetable[date]?.[slot]?.[booth];
+        if (l) lessons.push(l);
       }
     }
-    setTimetable(next);
-    toast({ status: "success", title: `${date} の授業データを消去しました` });
-  };
+    return { date, lessons };
+  });
+
+  const teachers = teacherOptions.map((name, idx) => ({ id: `T${idx + 1}`, name }));
+  const students = studentOptions.map((name, idx) => ({ id: `S${idx + 1}`, name }));
 
   return (
     <Box p={4}>
@@ -217,18 +237,12 @@ export default function TimetableManager() {
         />
       </HStack>
 
-      <ThreeWeeksGrid
-        dates={dates}
-        boothCount={5}
-        timeSlots={timeSlots}
-        timetable={timetable}
-        closedDays={closedDays}
-        closedSlots={closedSlots}
-        onToggleClosedDay={toggleClosedDay}
-        onToggleClosedSlot={toggleClosedSlot}
+      <WeeklySchedule
+        baseDate={baseDate}
+        teachers={teachers}
+        students={students}
+        schedules={schedules}
         onEdit={openEdit}
-        onClear={handleClearCell}
-        onClearDay={clearDayLessons}
       />
 
       <EditLessonModal
@@ -239,7 +253,17 @@ export default function TimetableManager() {
         studentOptions={studentOptions}
         initialData={
           editing
-            ? timetable[editing.date]?.[editing.slot]?.[editing.booth] || null
+            ? timetable[editing.date]?.[editing.slot]?.[editing.booth] || {
+                id: "",
+                startTime: timeSlots[editing.slot].split("〜")[0],
+                endTime: timeSlots[editing.slot].split("〜")[1],
+                subject: "",
+                teacherId: "",
+                studentId: "",
+                boothIndex: editing.booth,
+                students: [],
+                subjects: []
+              }
             : null
         }
       />
