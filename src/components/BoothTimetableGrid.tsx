@@ -94,7 +94,7 @@ export default function BoothTimetableGrid({
                         </Text>
                       ) : lesson ? (
                         <>
-                          <Text fontWeight="bold">{lesson.teacher}</Text>
+                          <Text fontWeight="bold">{lesson.teacherId}</Text>
                           {lesson.students.map((s, i) => (
                             <Text key={i} fontSize="sm">
                               {s.name}（{s.subject}）

@@ -16,8 +16,8 @@ export type Lesson = {
   startTime: string;
   endTime: string;
   subject: string;
-  teacherId: string;
-  studentId: string;
+  teacherId: string; // 名前をそのまま保存
+  studentId: string; // 使わない場合は空文字でもOK
   boothIndex: number;
   students: { name: string; subject: string }[];
   subjects: string[];
@@ -143,8 +143,8 @@ export default function TimetableManager() {
                   startTime: timeSlots[slot].split("〜")[0],
                   endTime: timeSlots[slot].split("〜")[1],
                   subject: "数学",
-                  teacherId: "T1",
-                  studentId: "S1",
+                  teacherId: "テスト先生",
+                  studentId: "",
                   boothIndex: booth,
                   students: [{ name: "テスト生徒", subject: "数学" }],
                   subjects: ["数学"]
@@ -166,7 +166,6 @@ export default function TimetableManager() {
       JSON.stringify({ baseDate, timetable, closedDays, closedSlots })
     );
   }, [baseDate, timetable, closedDays, closedSlots]);
-
   const openEdit = (date: string, slot: number, booth: number) => {
     setEditing({ date, slot, booth });
     onOpen();
@@ -174,15 +173,6 @@ export default function TimetableManager() {
 
   const handleSaveLesson = (lesson: Lesson) => {
     if (!editing) return;
-
-    // 名前からIDを引き直す（モーダルが名前を返す場合）
-    const teacherId =
-      teachers.find(t => t.id === lesson.teacherId || t.name === lesson.teacherId)?.id
-      || lesson.teacherId;
-    const studentId =
-      students.find(s => s.id === lesson.studentId || s.name === lesson.studentId)?.id
-      || lesson.studentId;
-
     setTimetable((prev) => ({
       ...prev,
       [editing.date]: {
@@ -191,13 +181,11 @@ export default function TimetableManager() {
           ...prev[editing.date][editing.slot],
           [editing.booth]: {
             ...lesson,
-            teacherId,
-            studentId,
             boothIndex: editing.booth,
             startTime: timeSlots[editing.slot].split("〜")[0],
             endTime: timeSlots[editing.slot].split("〜")[1],
             students: lesson.students ?? [],
-            subjects: lesson.subjects ?? []
+            subjects: (lesson.students ?? []).map((s) => s.subject),
           },
         },
       },

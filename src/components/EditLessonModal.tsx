@@ -16,7 +16,7 @@ import {
   IconButton,
   Tooltip,
 } from "@chakra-ui/react";
-import { Lesson, StudentSubject } from "../pages/TimetableManager";
+import { Lesson } from "../pages/TimetableManager";
 import { EditIcon } from "@chakra-ui/icons";
 
 const subjects = ["数学", "国語", "英語", "社会", "理科"];
@@ -39,30 +39,28 @@ export default function EditLessonModal({
   studentOptions = [],
 }: Props) {
   const [teacherMode, setTeacherMode] = useState<"select" | "input">("select");
-  const [teacher, setTeacher] = useState("");
+  const [teacherName, setTeacherName] = useState("");
   const [students, setStudents] = useState<
     { name: string; subject: string; mode: "select" | "input" }[]
   >([{ name: "", subject: subjects[0], mode: "select" }]);
 
   useEffect(() => {
     if (initialData) {
-      setTeacher(initialData.teacher || "");
+      setTeacherName(initialData.teacherId || "");
       setTeacherMode(
-        teacherOptions.includes(initialData.teacher) ? "select" : "input"
+        teacherOptions.includes(initialData.teacherId) ? "select" : "input"
       );
-      const mapped = (initialData.students.length > 0
+      const mapped = (initialData.students && initialData.students.length > 0
         ? initialData.students
         : [{ name: "", subject: subjects[0] }]
       ).map((s) => ({
         name: s.name,
         subject: s.subject,
-        mode: (studentOptions.includes(s.name) ? "select" : "input") as
-          | "select"
-          | "input",
+        mode: studentOptions.includes(s.name) ? "select" : "input",
       }));
       setStudents(mapped);
     } else {
-      setTeacher("");
+      setTeacherName("");
       setTeacherMode("select");
       setStudents([{ name: "", subject: subjects[0], mode: "select" }]);
     }
@@ -98,11 +96,14 @@ export default function EditLessonModal({
   };
 
   const handleSave = () => {
+    if (!initialData) return;
     const payload: Lesson = {
-      teacher,
+      ...initialData,
+      teacherId: teacherName, // 名前をそのまま保存
       students: students.map(({ name, subject }) => ({ name, subject })),
+      subjects: students.map((s) => s.subject),
     };
-    onSave(payload);
+    onSave({ ...payload });
   };
 
   return (
@@ -118,8 +119,8 @@ export default function EditLessonModal({
               {teacherMode === "select" ? (
                 <Select
                   placeholder="先生を選択"
-                  value={teacherOptions.includes(teacher) ? teacher : ""}
-                  onChange={(e) => setTeacher(e.target.value)}
+                  value={teacherOptions.includes(teacherName) ? teacherName : ""}
+                  onChange={(e) => setTeacherName(e.target.value)}
                 >
                   {teacherOptions.map((t) => (
                     <option key={t} value={t}>
@@ -130,8 +131,8 @@ export default function EditLessonModal({
               ) : (
                 <Input
                   placeholder="先生の名前を入力"
-                  value={teacher}
-                  onChange={(e) => setTeacher(e.target.value)}
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
                 />
               )}
               <Tooltip
