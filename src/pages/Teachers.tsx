@@ -155,7 +155,7 @@ export default function Teachers() {
 
         <FormControl>
           <FormLabel>AI補助</FormLabel>
-          <Button onClick={simulateAiPrediction}>画像をアップロードしてAI推定</Button>
+          <Button onClick={() => simulateAiPrediction()}>画像をアップロードしてAI推定</Button>
           {aiStatus === "ready" && (
             <>
               <Button onClick={applyCandidates} colorScheme="green">AI推定を適用</Button>

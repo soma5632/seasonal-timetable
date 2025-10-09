@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useToast } from "@chakra-ui/react";
 
 export type AvailabilitySlot = {
   dayOfWeek: number;
@@ -7,38 +6,32 @@ export type AvailabilitySlot = {
 };
 
 export function useAiSchedule(
-  existing: AvailabilitySlot[],
-  set: (slots: AvailabilitySlot[]) => void
+  availability: AvailabilitySlot[],
+  setAvailability: React.Dispatch<React.SetStateAction<AvailabilitySlot[]>>
 ) {
-  const toast = useToast();
   const [candidates, setCandidates] = useState<AvailabilitySlot[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "ready">("idle");
 
-  const simulateAiPrediction = async () => {
-    setStatus("processing");
-    try {
-      await new Promise((res) => setTimeout(res, 1000));
-      const dummy: AvailabilitySlot[] = [
-        { dayOfWeek: 1, timeSlot: "17:10〜18:10" },
-        { dayOfWeek: 3, timeSlot: "19:20〜20:20" },
-      ];
-      setCandidates(dummy);
-      setStatus("ready");
-      toast({ status: "info", title: "AI推定候補を用意しました" });
-    } catch {
-      setStatus("error");
-      toast({ status: "error", title: "AI推定に失敗しました" });
-    }
+  // ✅ 引数ありに修正
+  const simulateAiPrediction = (blob?: Blob) => {
+    console.log("simulateAiPrediction called", blob);
+
+    // 将来的には blob を OCR に渡して解析する処理をここに書く
+    // 今はダミーで候補を生成
+    const dummy: AvailabilitySlot[] = [
+      { dayOfWeek: 1, timeSlot: "10:00〜11:00" },
+      { dayOfWeek: 3, timeSlot: "15:40〜16:40" },
+    ];
+    setCandidates(dummy);
+    setStatus("ready");
   };
 
   const applyCandidates = () => {
-    const key = (a: AvailabilitySlot) => `${a.dayOfWeek}-${a.timeSlot}`;
-    const existingKeys = new Set(existing.map(key));
-    const merged = [...existing, ...candidates.filter((a) => !existingKeys.has(key(a)))];
-    set(merged);
-    setCandidates([]);
-    setStatus("idle");
-    toast({ status: "success", title: "AI候補を適用しました" });
+    if (candidates.length > 0) {
+      setAvailability([...availability, ...candidates]);
+      setCandidates([]);
+      setStatus("idle");
+    }
   };
 
   const clearCandidates = () => {
@@ -49,7 +42,7 @@ export function useAiSchedule(
   return {
     candidates,
     status,
-    simulateAiPrediction,
+    simulateAiPrediction, // ← blob を受け取れるようになった
     applyCandidates,
     clearCandidates,
   };

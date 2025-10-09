@@ -56,8 +56,8 @@ export default function EditLessonModal({
       ).map((s) => ({
         name: s.name,
         subject: s.subject,
-        mode: studentOptions.includes(s.name) ? "select" : "input",
-      }));
+        mode: (studentOptions.includes(s.name) ? "select" : "input") as "select" | "input",
+        }));
       setStudents(mapped);
     } else {
       setTeacherName("");
@@ -84,7 +84,7 @@ export default function EditLessonModal({
     if (students.length < 2) {
       setStudents([
         ...students,
-        { name: "", subject: subjects[0], mode: "select" },
+        { name: "", subject: subjects[0], mode: "select" as "select" },
       ]);
     }
   };
