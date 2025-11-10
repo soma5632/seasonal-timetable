@@ -10,9 +10,9 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case 'students': return <Students />;
-      case 'teachers': return <Teachers />;
-      case 'timetable': return <TimetableManager />;
+      case 'students': return <Students onNavigate={setPage} />;
+      case 'teachers': return <Teachers onNavigate={setPage} />;
+      case 'timetable': return <TimetableManager onNavigate={setPage} />;
       default: return <Home onNavigate={setPage} />;
     }
   };

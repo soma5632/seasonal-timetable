@@ -5,19 +5,21 @@ import {
   HStack,
   Input,
   Text,
+  Button,
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
 import WeeklySchedule from "../components/WeeklySchedule";
 import EditLessonModal from "../components/EditLessonModal";
+import StudentSchedule from "../components/StudentSchedule"; // ★ 追加
 
 export type Lesson = {
   id: string;
   startTime: string;
   endTime: string;
   subject: string;
-  teacherId: string; // 名前をそのまま保存
-  studentId: string; // 使わない場合は空文字でもOK
+  teacherId: string;
+  studentId: string;
   boothIndex: number;
   students: { name: string; subject: string }[];
   subjects: string[];
@@ -38,16 +40,9 @@ export type Timetable = {
 };
 
 const timeSlots: string[] = [
-  "10:00〜11:00",
-  "11:10〜12:10",
-  "13:20〜14:20",
-  "14:30〜15:30",
-  "15:40〜16:40",
-  "16:05〜17:05",
-  "17:10〜18:10",
-  "18:15〜19:15",
-  "19:20〜20:20",
-  "20:30〜21:30",
+  "10:00〜11:30", "11:10〜12:40", "13:20〜14:50", "14:30〜16:00",
+  "15:40〜17:10", "16:05〜17:35", "17:10〜18:40", "18:15〜19:45",
+  "19:20〜20:50", "20:30〜22:00"
 ];
 
 const BOOTH_COUNT = 5;
@@ -84,7 +79,8 @@ function generate1WeekMonToSat(startMonday: Date) {
   return dates;
 }
 
-export default function TimetableManager() {
+export default function TimetableManager({ onNavigate }:
+    { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers') => void }) {
   const toast = useToast();
 
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
@@ -100,6 +96,39 @@ export default function TimetableManager() {
 
   const [editing, setEditing] = useState<{ date: string; slot: number; booth: number } | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  // 編集開始
+    const openEdit = (date: string, slot: number, booth: number) => {
+      setEditing({ date, slot, booth });
+      onOpen();
+    };
+
+    // 編集内容を保存
+    const handleSaveLesson = (lesson: Lesson) => {
+      if (!editing) return;
+      setTimetable((prev) => ({
+        ...prev,
+        [editing.date]: {
+          ...prev[editing.date],
+          [editing.slot]: {
+            ...prev[editing.date][editing.slot],
+            [editing.booth]: {
+              ...lesson,
+              boothIndex: editing.booth,
+              startTime: timeSlots[editing.slot].split("〜")[0],
+              endTime: timeSlots[editing.slot].split("〜")[1],
+              students: lesson.students ?? [],
+              subjects: (lesson.students ?? []).map((s) => s.subject),
+            },
+          },
+        },
+      }));
+      onClose();
+      setEditing(null);
+    };
+
+  // ★ 個別印刷用 state
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -127,73 +156,6 @@ export default function TimetableManager() {
       }
     } catch {}
   }, []);
-
-  useEffect(() => {
-    setTimetable((prev) => {
-      const next: Timetable = { ...prev };
-      dates.forEach((date) => {
-        if (!next[date]) next[date] = {};
-        for (let slot = 0; slot < timeSlots.length; slot++) {
-          if (!next[date][slot]) next[date][slot] = {};
-          for (let booth = 0; booth < BOOTH_COUNT; booth++) {
-            if (!(booth in next[date][slot])) {
-              if (DEV_MODE) {
-                next[date][slot][booth] = {
-                  id: `${date}-${slot}-${booth}`,
-                  startTime: timeSlots[slot].split("〜")[0],
-                  endTime: timeSlots[slot].split("〜")[1],
-                  subject: "数学",
-                  teacherId: "テスト先生",
-                  studentId: "",
-                  boothIndex: booth,
-                  students: [{ name: "テスト生徒", subject: "数学" }],
-                  subjects: ["数学"]
-                };
-              } else {
-                next[date][slot][booth] = null;
-              }
-            }
-          }
-        }
-      });
-      return next;
-    });
-  }, [dates]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ baseDate, timetable, closedDays, closedSlots })
-    );
-  }, [baseDate, timetable, closedDays, closedSlots]);
-  const openEdit = (date: string, slot: number, booth: number) => {
-    setEditing({ date, slot, booth });
-    onOpen();
-  };
-
-  const handleSaveLesson = (lesson: Lesson) => {
-    if (!editing) return;
-    setTimetable((prev) => ({
-      ...prev,
-      [editing.date]: {
-        ...prev[editing.date],
-        [editing.slot]: {
-          ...prev[editing.date][editing.slot],
-          [editing.booth]: {
-            ...lesson,
-            boothIndex: editing.booth,
-            startTime: timeSlots[editing.slot].split("〜")[0],
-            endTime: timeSlots[editing.slot].split("〜")[1],
-            students: lesson.students ?? [],
-            subjects: (lesson.students ?? []).map((s) => s.subject),
-          },
-        },
-      },
-    }));
-    onClose();
-    setEditing(null);
-  };
-
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
@@ -211,6 +173,10 @@ export default function TimetableManager() {
   return (
     <Box p={4}>
       <Heading size="lg" mb={2}>時間割管理</Heading>
+      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
+      ホームに戻る
+      </Button>
+
       <Text fontSize="sm" color="gray.600" mb={4}>
         開始日を選ぶと、その週の月曜から1週間ぶん（6日）を横に表示します。
       </Text>
@@ -225,13 +191,38 @@ export default function TimetableManager() {
         />
       </HStack>
 
-      <WeeklySchedule
-        baseDate={baseDate}
-        teachers={teachers}
-        students={students}
-        schedules={schedules}
-        onEdit={openEdit}
-      />
+      {/* 印刷ボタン群 */}
+      <HStack spacing={3} mb={4} className="no-print">
+        <Button onClick={() => window.print()} colorScheme="blue">
+          全体を印刷
+        </Button>
+        {studentOptions.map((name) => (
+          <Button key={name} onClick={() => setSelectedStudent(name)}>
+            {name} さん用に印刷
+          </Button>
+        ))}
+        {selectedStudent && (
+          <Button onClick={() => setSelectedStudent(null)} colorScheme="gray">
+            戻る
+          </Button>
+        )}
+      </HStack>
+
+      {/* 通常の時間割ビュー or 個別ビュー */}
+      {!selectedStudent ? (
+        <WeeklySchedule
+          baseDate={baseDate}
+          teachers={teachers}
+          students={students}
+          schedules={schedules}
+          onEdit={openEdit}
+        />
+      ) : (
+        <StudentSchedule
+          studentName={selectedStudent}
+          lessons={schedules.flatMap((s) => s.lessons)}
+        />
+      )}
 
       <EditLessonModal
         isOpen={isOpen}

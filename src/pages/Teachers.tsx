@@ -14,12 +14,13 @@ type Teacher = {
 
 const SUBJECT_OPTIONS = ["国語", "数学", "英語", "理科", "社会"];
 const TIME_SLOTS = [
-  "10:00〜11:00", "11:10〜12:10", "13:20〜14:20", "14:30〜15:30",
-  "15:40〜16:40", "16:05〜17:05", "17:10〜18:10", "18:15〜19:15",
-  "19:20〜20:20", "20:30〜21:30"
+  "10:00〜11:30", "11:10〜12:40", "13:20〜14:50", "14:30〜16:00",
+  "15:40〜17:10", "16:05〜17:35", "17:10〜18:40", "18:15〜19:45",
+  "19:20〜20:50", "20:30〜22:00"
 ];
 
-export default function Teachers() {
+export default function Teachers({ onNavigate }:
+    { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers') => void }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [name, setName] = useState("");
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -98,6 +99,10 @@ export default function Teachers() {
   return (
     <Box p={4}>
       <Heading size="lg" mb={4}>先生情報入力</Heading>
+
+      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
+      ホームに戻る
+      </Button>
 
       <VStack spacing={4} align="stretch" maxW="680px">
         <FormControl>
