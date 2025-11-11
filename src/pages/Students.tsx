@@ -1,261 +1,241 @@
-import { useState, useEffect } from "react";
-import {
-  Box, Button, FormControl, FormLabel, Input, Select,
-  VStack, HStack, Heading, Text
-} from "@chakra-ui/react";
-import { useAiSchedule, AvailabilitySlot } from "../hooks/useAiSchedule";
-import CameraCapture from "../components/CameraCapture";
+import React, { useEffect, useRef, useState } from "react";
 
-type SubjectPlan = {
-  subject: string;
-  totalLessons: number;
-  completedLessons: number;
+// ---- Types ----
+type Student = { id: number; name: string };
+
+type ScheduleItem = {
+  // 例: [7, 21] → 7月21日
+  date: [number, number];
+  // 例: "10:00-11:30"
+  time: string;
+  // 例: "x" | "blank" | "triangle" など
+  tag: string;
 };
 
-type Student = {
-  id: string;
-  name: string;
-  grade: string;
-  subjects: SubjectPlan[];
-  availability: AvailabilitySlot[];
+type StudentsProps = {
+  onNavigate: React.Dispatch<React.SetStateAction<"home" | "students" | "teachers" | "timetable">>;
 };
 
-const SUBJECT_OPTIONS = ["国語", "数学", "英語", "理科", "社会"];
-const GRADE_OPTIONS = [
-  "小1","小2","小3","小4","小5","小6",
-  "中1","中2","中3",
-  "高1","高2","高3"
-];
-const TIME_SLOTS = [
-  "10:00〜11:30", "11:10〜12:40", "13:20〜14:50", "14:30〜16:00",
-  "15:40〜17:10", "16:05〜17:35", "17:10〜18:40", "18:15〜19:45",
-  "19:20〜20:50", "20:30〜22:00"
-];
 
-export default function Students({ onNavigate }:
-    { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers') => void }) {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [name, setName] = useState("");
-  const [grade, setGrade] = useState(GRADE_OPTIONS[0]);
-  const [subjects, setSubjects] = useState<SubjectPlan[]>([]);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+// ---- Component ----
+export default function Students({ onNavigate }: StudentsProps) {
+  // 生徒一覧（暫定的にローカルで管理、将来はAPIで取得）
+  const [students, setStudents] = useState<Student[]>([
+    { id: 1, name: "山田太郎" },
+    { id: 2, name: "佐藤花子" }
+  ]);
 
-  const {
-    candidates: aiCandidates,
-    status: aiStatus,
-    simulateAiPrediction, // ここに追加
-    applyCandidates,
-    clearCandidates,
-  } = useAiSchedule(availability, setAvailability);
+  // 新規登録フォームの表示切替と入力値
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState("");
 
-  useEffect(() => {
-    const saved = localStorage.getItem("students");
-    if (saved) {
-      const parsed: Partial<Student>[] = JSON.parse(saved);
-      const fixed: Student[] = parsed.map((s, idx) => ({
-        id: s.id || String(Date.now() + idx),
-        name: s.name || "",
-        grade: s.grade || GRADE_OPTIONS[0],
-        subjects: s.subjects || [],
-        availability: s.availability || [],
-      }));
-      setStudents(fixed);
+  // 詳細表示する生徒
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  // 推定されたスケジュール（バックエンドから取得）
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+
+  // カメラ関連
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cameraOn, setCameraOn] = useState(false);
+
+  // ---- Handlers ----
+  const handleAddStudent = () => {
+    if (!newName.trim()) return;
+    const newStudent: Student = { id: Date.now(), name: newName.trim() };
+    setStudents(prev => [...prev, newStudent]);
+    setNewName("");
+    setShowForm(false);
+  };
+
+  const handleSelectStudent = (student: Student) => {
+    setSelectedStudent(student);
+    setSchedule([]); // 詳細に入るたびにクリア
+  };
+
+  const handleBackToList = () => {
+    // 一覧に戻るだけなら setSelectedStudent(null) でもいいけど、
+    // ページ遷移を App.tsx 側で管理しているなら onNavigate を呼ぶ
+    onNavigate("home");
+  };
+
+
+  // ---- Camera ----
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraOn(true);
+    } catch (e) {
+      console.error("Camera start failed:", e);
+      setCameraOn(false);
     }
+  };
+
+  const stopCamera = () => {
+    const video = videoRef.current;
+    if (video && video.srcObject) {
+      const tracks = (video.srcObject as MediaStream).getTracks();
+      tracks.forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    setCameraOn(false);
+  };
+
+  const captureAndSend = async () => {
+    if (!videoRef.current || !canvasRef.current || !selectedStudent) return;
+
+    // Canvasに現在のビデオフレームを描画
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Canvasサイズを動画に合わせる（固定サイズでもOK）
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    if (!blob) return;
+
+    const formData = new FormData();
+    formData.append("file", blob, "capture.jpg");
+    formData.append("student_id", String(selectedStudent.id));
+
+    try {
+      const res = await fetch("http://133.14.233.142:5000/schedule/upload", {
+          method: "POST",
+          body: formData
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      // 期待するJSON構造に合わせて型を調整（ここでは ScheduleItem[] を想定）
+      setSchedule(data);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  // 詳細画面でアンマウント時にカメラ停止
+  useEffect(() => {
+    return () => stopCamera();
   }, []);
 
-  const saveStudents = (list: Student[]) => {
-    setStudents(list);
-    localStorage.setItem("students", JSON.stringify(list));
-  };
+  // ---- Render ----
+  if (selectedStudent) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>{selectedStudent.name} の詳細</h2>
 
-  const addStudent = () => {
-    if (!name.trim()) return;
-    const newStudent: Student = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      grade,
-      subjects,
-      availability,
-    };
-    saveStudents([...students, newStudent]);
-    setName("");
-    setGrade(GRADE_OPTIONS[0]);
-    setSubjects([]);
-    setAvailability([]);
-  };
+        <section style={{ marginTop: 16 }}>
+          <h3>AIでスケジュール推定</h3>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginTop: 8 }}>
+            <div>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{
+                  width: 320,
+                  aspectRatio: "1 / 1.4142",
+                  background: "#000",
+                  borderRadius: 8,
+                  objectFit: "cover"
+                }}
+              />,
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                {!cameraOn ? (
+                  <button onClick={startCamera}>カメラ起動</button>
+                ) : (
+                  <button onClick={stopCamera}>カメラ停止</button>
+                )}
+                <button onClick={captureAndSend} disabled={!cameraOn}>
+                  撮影して推定
+                </button>
+              </div>
+            </div>
 
-  const addSubjectPlan = () => {
-    setSubjects(prev => [
-      ...prev,
-      { subject: SUBJECT_OPTIONS[0], totalLessons: 0, completedLessons: 0 },
-    ]);
-  };
+            {/* Canvasは非表示でもOK（デバッグ時は表示） */}
+            <canvas
+              ref={canvasRef}
+              style={{ display: "none" }}
+              width={320}
+              height={453} // 320 × √2 ≈ 453
+            />
 
-  const updateSubjectPlan = (
-    index: number,
-    field: keyof SubjectPlan,
-    value: string | number
-  ) => {
-    setSubjects(prev => {
-      const copy = [...prev];
-      (copy[index] as any)[field] = value;
-      return copy;
-    });
-  };
+          </div>
+        </section>
 
-  const addAvailability = () => {
-    setAvailability(prev => [
-      ...prev,
-      { dayOfWeek: 1, timeSlot: TIME_SLOTS[0] },
-    ]);
-  };
-
-  const updateAvailability = (
-    index: number,
-    field: keyof AvailabilitySlot,
-    value: string | number
-  ) => {
-    setAvailability(prev => {
-      const copy = [...prev];
-      (copy[index] as any)[field] = value;
-      return copy;
-    });
-  };
-
-  const removeAvailability = (index: number) => {
-    setAvailability(prev => prev.filter((_, i) => i !== index));
-  };
-
-  return (
-    <Box p={4}>
-      <Heading size="lg" mb={4}>生徒情報入力</Heading>
-
-      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
-      ホームに戻る
-      </Button>
-
-      <VStack spacing={4} align="stretch" maxW="680px">
-        <FormControl>
-          <FormLabel>名前</FormLabel>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>学年</FormLabel>
-          <Select value={grade} onChange={(e) => setGrade(e.target.value)}>
-            {GRADE_OPTIONS.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>受講科目</FormLabel>
-          {subjects.map((sp, idx) => (
-            <HStack key={idx}>
-              <Select
-                value={sp.subject}
-                onChange={(e) =>
-                  updateSubjectPlan(idx, "subject", e.target.value)
-                }
-              >
-                {SUBJECT_OPTIONS.map((subj) => (
-                  <option key={subj} value={subj}>{subj}</option>
-                ))}
-              </Select>
-              <Input
-                type="number"
-                placeholder="予定回数"
-                value={sp.totalLessons}
-                onChange={(e) =>
-                  updateSubjectPlan(idx, "totalLessons", Number(e.target.value))
-                }
-                width="100px"
-              />
-              <Text>受講済み: {sp.completedLessons} 回</Text>
-            </HStack>
-          ))}
-          <Button size="sm" onClick={addSubjectPlan}>＋科目追加</Button>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>受講可能スケジュール</FormLabel>
-          {availability.map((slot, idx) => (
-            <HStack key={idx}>
-              <Select
-                value={slot.dayOfWeek}
-                onChange={(e) =>
-                  updateAvailability(idx, "dayOfWeek", Number(e.target.value))
-                }
-              >
-                {["日", "月", "火", "水", "木", "金", "土"].map((d, i) => (
-                  <option key={i} value={i}>{d}</option>
-                ))}
-              </Select>
-              <Select
-                value={slot.timeSlot}
-                onChange={(e) =>
-                  updateAvailability(idx, "timeSlot", e.target.value)
-                }
-              >
-                {TIME_SLOTS.map((ts) => (
-                  <option key={ts} value={ts}>{ts}</option>
-                ))}
-              </Select>
-              <Button size="xs" colorScheme="red" onClick={() => removeAvailability(idx)}>
-                削除
-              </Button>
-            </HStack>
-          ))}
-          <Button size="sm" onClick={addAvailability}>＋追加</Button>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>AI補助（カメラ撮影）</FormLabel>
-          <CameraCapture
-            onCapture={(blob) => {
-              // 将来ここでOCR処理に渡す
-              simulateAiPrediction(blob); // 今はダミー
-            }}
-          />
-          {aiStatus === "ready" && (
-            <>
-              <Button onClick={applyCandidates} colorScheme="green">AI推定を適用</Button>
-              <Button onClick={clearCandidates} variant="outline">候補を破棄</Button>
-            </>
-          )}
-          {aiCandidates.length > 0 && (
-            <Box mt={2}>
-              {aiCandidates.map((a, i) => (
-                <Text key={i}>
-                  {["日","月","火","水","木","金","土"][a.dayOfWeek]} {a.timeSlot}
-                </Text>
+        <section style={{ marginTop: 24 }}>
+          <h3>推定スケジュール</h3>
+          {schedule.length === 0 ? (
+            <p style={{ color: "#666" }}>まだ推定結果がありません。カメラで撮影して推定してください。</p>
+          ) : (
+            <ul style={{ lineHeight: 1.8 }}>
+              {schedule.map((item, idx) => (
+                <li key={idx}>
+                  {item.date[0]}月{item.date[1]}日 {item.time} → {item.tag}
+                </li>
               ))}
-            </Box>
+            </ul>
           )}
-        </FormControl>
+        </section>
 
-        <Button colorScheme="green" onClick={addStudent}>登録</Button>
-      </VStack>
+        <div style={{ marginTop: 24 }}>
+          <button onClick={handleBackToList}>一覧に戻る</button>
+        </div>
+      </div>
+    );
+  }
 
-      <Box mt={8}>
-        <Heading size="md">登録済み生徒</Heading>
-        {students.map((s) => (
-          <Box key={s.id} p={2} borderWidth="1px" mt={2}>
-            <Text fontWeight="bold">{s.name}（{s.grade}）</Text>
-            {s.subjects.map((sp, i) => (
-              <Text key={i}>
-                {sp.subject}：{sp.completedLessons}/{sp.totalLessons} 回
-              </Text>
-            ))}
-            <Text>
-              スケジュール: {s.availability.map(a =>
-                `${["日","月","火","水","木","金","土"][a.dayOfWeek]} ${a.timeSlot}`
-              ).join(" / ")}
-            </Text>
-          </Box>
+  // 一覧＋新規登録フォーム（同一ページ）
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>生徒管理</h2>
+
+      {/* 新規登録トグル */}
+      {!showForm ? (
+        <button onClick={() => setShowForm(true)}>新規登録</button>
+      ) : (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, marginBottom: 16 }}>
+          <input
+            type="text"
+            placeholder="名前を入力"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+          />
+          <button onClick={handleAddStudent}>登録</button>
+          <button onClick={() => { setShowForm(false); setNewName(""); }}>キャンセル</button>
+        </div>
+      )}
+
+      {/* 生徒一覧（カード形式） */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+        {students.map(s => (
+          <div
+            key={s.id}
+            style={{
+              width: 220,
+              border: "1px solid #ddd",
+              borderRadius: 10,
+              padding: 12,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              background: "#fff"
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>{s.name}</div>
+            <button onClick={() => handleSelectStudent(s)}>詳細を見る</button>
+          </div>
         ))}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
