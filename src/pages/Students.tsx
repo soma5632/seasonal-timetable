@@ -32,6 +32,9 @@ export default function Students({ onNavigate }: StudentsProps) {
   // 詳細表示する生徒
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
+  // 撮影未or失敗状態
+  const [inferenceTried, setInferenceTried] = useState(false);
+
   // 推定されたスケジュール（バックエンドから取得）
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
@@ -78,11 +81,11 @@ export default function Students({ onNavigate }: StudentsProps) {
         }
         const data = await res.json();
         setSchedule(data);
+        setInferenceTried(true);   // ← ここで更新
       } catch (err) {
         console.error("Upload/Inference failed:", err);
       }
   };
-
 
   // ---- Camera ----
   const startCamera = async () => {
@@ -211,8 +214,14 @@ export default function Students({ onNavigate }: StudentsProps) {
 
         <section style={{ marginTop: 24 }}>
           <h3>推定スケジュール</h3>
-          {schedule.length === 0 ? (
-            <p style={{ color: "#666" }}>まだ推定結果がありません。カメラで撮影して推定してください。</p>
+          {!inferenceTried ? (
+            <p style={{ color: "#666" }}>
+              まだ推定していません。カメラで撮影するか写真を選択してください。
+            </p>
+          ) : schedule.length === 0 ? (
+            <p style={{ color: "#c00" }}>
+              推定結果が空でした。もう１度撮影してください。
+            </p>
           ) : (
             <ul style={{ lineHeight: 1.8 }}>
               {schedule.map((item, idx) => (
