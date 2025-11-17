@@ -45,7 +45,11 @@ def upload_schedule():
         print(f"[DEBUG] Inference result: {schedule_map}")
 
         if schedule_map is None:
-            return jsonify({"error": "Inference returned None"}), 500
+            if schedule_map is None:
+                return jsonify({
+                    "status": "error",
+                    "message": "推論に失敗しました。画像を確認してください。"
+                }), 200
 
         return jsonify(schedule_map)
 
