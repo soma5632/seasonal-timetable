@@ -6,10 +6,9 @@ from PIL import Image
 import math
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": ["https://souma-lab.com"]}})
 
 @app.route("/schedule/upload", methods=["POST"])
-@cross_origin()
 def upload_schedule():
     file = request.files.get("file")
     student_id = request.form.get("student_id")
