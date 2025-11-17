@@ -144,6 +144,7 @@ export default function Students({ onNavigate }: StudentsProps) {
       const data = await res.json();
       // 期待するJSON構造に合わせて型を調整（ここでは ScheduleItem[] を想定）
       setSchedule(data);
+      setInferenceTried(true);
     } catch (err) {
       console.error("Upload/Inference failed:", err);
     }
