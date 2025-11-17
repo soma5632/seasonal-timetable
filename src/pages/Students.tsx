@@ -60,6 +60,29 @@ export default function Students({ onNavigate }: StudentsProps) {
     onNavigate("home");
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || !selectedStudent) return;
+      const file = e.target.files[0];
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("student_id", String(selectedStudent.id));
+
+      try {
+        const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+          method: "POST",
+          body: formData
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        setSchedule(data);
+      } catch (err) {
+        console.error("Upload/Inference failed:", err);
+      }
+  };
+
 
   // ---- Camera ----
   const startCamera = async () => {
@@ -151,14 +174,27 @@ export default function Students({ onNavigate }: StudentsProps) {
                 }}
               />,
               <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                {!cameraOn ? (
-                  <button onClick={startCamera}>カメラ起動</button>
-                ) : (
-                  <button onClick={stopCamera}>カメラ停止</button>
-                )}
-                <button onClick={captureAndSend} disabled={!cameraOn}>
-                  撮影して推定
-                </button>
+                  {!cameraOn ? (
+                    <button onClick={startCamera}>カメラ起動</button>
+                  ) : (
+                    <button onClick={stopCamera}>カメラ停止</button>
+                  )}
+                  <button onClick={captureAndSend} disabled={!cameraOn}>
+                    撮影して推定
+                  </button>
+
+                  {/* 写真から選択ボタン */}
+                  <label style={{ cursor: "pointer" }}>
+                    <span style={{ padding: "6px 12px", border: "1px solid #ccc", borderRadius: 6 }}>
+                      写真から選択
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: "none" }}
+                    />
+                  </label>
               </div>
             </div>
 
