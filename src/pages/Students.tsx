@@ -108,7 +108,7 @@ export default function Students({ onNavigate }: StudentsProps) {
     formData.append("student_id", String(selectedStudent.id));
 
     try {
-      const res = await fetch("http://133.14.233.142:5000/schedule/upload", {
+      const res = await fetch("https://preceding-smilies-forgotten-grades.trycloudflare.com/schedule/upload", {
           method: "POST",
           body: formData
       });
