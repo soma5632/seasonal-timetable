@@ -16,7 +16,6 @@ type StudentsProps = {
   onNavigate: React.Dispatch<React.SetStateAction<"home" | "students" | "teachers" | "timetable">>;
 };
 
-
 // ---- Component ----
 export default function Students({ onNavigate }: StudentsProps) {
   // 生徒一覧（暫定的にローカルで管理、将来はAPIで取得）
@@ -58,35 +57,32 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   const handleBackToList = () => {
-    // 一覧に戻るだけなら setSelectedStudent(null) でもいいけど、
-    // ページ遷移を App.tsx 側で管理しているなら onNavigate を呼ぶ
     onNavigate("home");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || !selectedStudent) return;
-      const file = e.target.files[0];
+    if (!e.target.files || !selectedStudent) return;
+    const file = e.target.files[0];
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("student_id", String(selectedStudent.id));
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("student_id", String(selectedStudent.id));
 
-      try {
-        const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-          method: "POST",
-          body: formData
-        });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        setSchedule(data);
-        setInferenceTried(true);   // ← ここで更新
-      } catch (err) {
-        console.error("Upload/Inference failed:", err);
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
+      const data = await res.json();
+      setSchedule(data);
+      setInferenceTried(true);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
   };
-
   // ---- Camera ----
   const startCamera = async () => {
     try {
@@ -114,13 +110,11 @@ export default function Students({ onNavigate }: StudentsProps) {
   const captureAndSend = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedStudent) return;
 
-    // Canvasに現在のビデオフレームを描画
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Canvasサイズを動画に合わせる（固定サイズでもOK）
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
 
@@ -135,14 +129,13 @@ export default function Students({ onNavigate }: StudentsProps) {
 
     try {
       const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-          method: "POST",
-          body: formData
+        method: "POST",
+        body: formData
       });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
-      // 期待するJSON構造に合わせて型を調整（ここでは ScheduleItem[] を想定）
       setSchedule(data);
       setInferenceTried(true);
     } catch (err) {
@@ -150,7 +143,6 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
   };
 
-  // 詳細画面でアンマウント時にカメラ停止
   useEffect(() => {
     return () => stopCamera();
   }, []);
@@ -176,29 +168,27 @@ export default function Students({ onNavigate }: StudentsProps) {
                   borderRadius: 8,
                   objectFit: "cover"
                 }}
-              />,
+              />
               <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                  {!cameraOn ? (
-                    <button onClick={startCamera}>カメラ起動</button>
-                  ) : (
-                    <button onClick={stopCamera}>カメラ停止</button>
-                  )}
-                  <button onClick={captureAndSend} disabled={!cameraOn}>
-                    撮影して推定
-                  </button>
-
-                  {/* 写真から選択ボタン */}
-                  <label style={{ cursor: "pointer" }}>
-                    <span style={{ padding: "6px 12px", border: "1px solid #ccc", borderRadius: 6 }}>
-                      写真から選択
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      style={{ display: "none" }}
-                    />
-                  </label>
+                {!cameraOn ? (
+                  <button onClick={startCamera}>カメラ起動</button>
+                ) : (
+                  <button onClick={stopCamera}>カメラ停止</button>
+                )}
+                <button onClick={captureAndSend} disabled={!cameraOn}>
+                  撮影して推定
+                </button>
+                <label style={{ cursor: "pointer" }}>
+                  <span style={{ padding: "6px 12px", border: "1px solid #ccc", borderRadius: 6 }}>
+                    写真から選択
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    style={{ display: "none" }}
+                  />
+                </label>
               </div>
             </div>
 
@@ -209,7 +199,6 @@ export default function Students({ onNavigate }: StudentsProps) {
               width={320}
               height={453} // 320 × √2 ≈ 453
             />
-
           </div>
         </section>
 
@@ -241,12 +230,11 @@ export default function Students({ onNavigate }: StudentsProps) {
     );
   }
 
-  // 一覧＋新規登録フォーム（同一ページ）
+  // 一覧＋新規登録フォーム
   return (
     <div style={{ padding: 20 }}>
       <h2>生徒管理</h2>
 
-      {/* 新規登録トグル */}
       {!showForm ? (
         <button onClick={() => setShowForm(true)}>新規登録</button>
       ) : (
@@ -263,7 +251,6 @@ export default function Students({ onNavigate }: StudentsProps) {
         </div>
       )}
 
-      {/* 生徒一覧（カード形式） */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
         {students.map(s => (
           <div
