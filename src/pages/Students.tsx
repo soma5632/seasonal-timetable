@@ -20,9 +20,12 @@ type StudentsProps = {
   onNavigate: React.Dispatch<React.SetStateAction<"home" | "students" | "teachers" | "timetable">>;
 };
 
+// 学年と科目の選択肢
+const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];
+const subjectOptions = ["国語","数学","英語","理科","社会"];
+
 // ---- Component ----
 export default function Students({ onNavigate }: StudentsProps) {
-  // 生徒一覧（暫定的にローカルで管理）
   const [students, setStudents] = useState<Student[]>([]);
 
   // 新規登録フォーム
@@ -43,7 +46,7 @@ export default function Students({ onNavigate }: StudentsProps) {
   // 撮影未or失敗状態
   const [inferenceTried, setInferenceTried] = useState(false);
 
-  // 推定されたスケジュール（バックエンドから取得）
+  // 推定されたスケジュール
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
   // カメラ関連
@@ -53,11 +56,11 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // ---- Handlers ----
   const handleAddStudent = () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !newGrade) return;
     const newStudent: Student = {
       id: Date.now(),
       name: newName.trim(),
-      grade: newGrade.trim(),
+      grade: newGrade,
       subjects: [],
       schedule: [],
       ngTeachers: []
@@ -79,10 +82,10 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   const addSubject = () => {
-    if (!selectedStudent || !newSubject.trim() || newCount <= 0) return;
+    if (!selectedStudent || !newSubject || newCount <= 0) return;
     const updated = {
       ...selectedStudent,
-      subjects: [...selectedStudent.subjects, { name: newSubject.trim(), count: newCount }]
+      subjects: [...selectedStudent.subjects, { name: newSubject, count: newCount }]
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
@@ -188,7 +191,10 @@ export default function Students({ onNavigate }: StudentsProps) {
               <li key={idx}>{sub.name} ({sub.count}回)</li>
             ))}
           </ul>
-          <input type="text" placeholder="科目" value={newSubject} onChange={e => setNewSubject(e.target.value)} />
+          <select value={newSubject} onChange={e => setNewSubject(e.target.value)}>
+            <option value="">科目を選択</option>
+            {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
           <input type="number" placeholder="回数" value={newCount} onChange={e => setNewCount(Number(e.target.value))} />
           <button onClick={addSubject}>追加</button>
         </section>
@@ -259,13 +265,10 @@ export default function Students({ onNavigate }: StudentsProps) {
             onChange={e => setNewName(e.target.value)}
             style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
           />
-          <input
-            type="text"
-            placeholder="学年を入力"
-            value={newGrade}
-            onChange={e => setNewGrade(e.target.value)}
-            style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
-          />
+          <select value={newGrade} onChange={e => setNewGrade(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}>
+            <option value="">学年を選択</option>
+            {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={handleAddStudent}>登録</button>
             <button onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</button>
