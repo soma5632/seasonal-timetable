@@ -1,4 +1,3 @@
-// TimetableManager.tsx (Part 1/3)
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -13,12 +12,18 @@ import {
   VStack,
   Divider,
   Badge,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from "@chakra-ui/react";
 import WeeklySchedule from "../components/WeeklySchedule";
 import EditLessonModal from "../components/EditLessonModal";
-import StudentSchedule from "../components/StudentSchedule"; // ★ 既存のルーティング形を踏襲
+import StudentSchedule from "../components/StudentSchedule";
 
-// 既存の型（残すが今回の画面では使わない領域もあり）
+// ===== 既存領域 =====
 export type Lesson = {
   id: string;
   startTime: string;
@@ -45,14 +50,6 @@ export type Timetable = {
   };
 };
 
-// ---- 新規: ターム関連の型・定数 ----
-type TermPreset = "第1ターム" | "第2ターム";
-
-// 日曜非表示前提、開校曜日は月〜土
-const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
-const OPEN_WEEKDAYS = ["月", "火", "水", "木", "金", "土"];
-
-// 固定10枠（提示済みスロット）
 const timeSlots: string[] = [
   "10:00〜11:30",
   "11:10〜12:40",
@@ -66,23 +63,8 @@ const timeSlots: string[] = [
   "20:30〜22:00",
 ];
 
-// UI表示用の週ブロック
-type WeekBlockDate = { iso: string; label: string; weekdayJa: string };
-type WeekBlock = { dates: WeekBlockDate[] };
-
-// 保存ペイロード（Part 3で利用）
-type SavePayload = {
-  termName: TermPreset;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
-  // 閉校スロット: key=ISO日付, value=閉校する時限番号配列（1..10）
-  closedSlots: { [dateISO: string]: number[] };
-};
-
-// ---- 既存ユーティリティ互換＋新規 ----
 const BOOTH_COUNT = 5;
 const STORAGE_KEY = "timetable-week-booth-closed";
-const DEV_MODE = true;
 
 function toDateString(d: Date) {
   const y = d.getFullYear();
@@ -90,12 +72,10 @@ function toDateString(d: Date) {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
 }
-
 function parseDate(str: string) {
   const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
-
 function startOfWeekMonday(date: Date) {
   const d = new Date(date);
   const day = d.getDay();
@@ -103,7 +83,6 @@ function startOfWeekMonday(date: Date) {
   d.setDate(d.getDate() - diff);
   return d;
 }
-
 function generate1WeekMonToSat(startMonday: Date) {
   const dates: string[] = [];
   for (let dow = 0; dow < 6; dow++) {
@@ -114,7 +93,14 @@ function generate1WeekMonToSat(startMonday: Date) {
   return dates;
 }
 
-// 追加: 表示ラベル
+// ===== 新規：ターム管理 =====
+type TermPreset = "第1ターム" | "第2ターム";
+type WeekBlockDate = { iso: string; label: string; weekdayJa: string };
+type WeekBlock = { dates: WeekBlockDate[] };
+
+const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+const OPEN_WEEKDAYS = ["月", "火", "水", "木", "金", "土"];
+
 function toMD(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
@@ -124,11 +110,9 @@ function weekdayJa(d: Date): string {
 function parseISO(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  dt.setHours(12, 0, 0, 0); // TZずれ吸収
+  dt.setHours(12, 0, 0, 0);
   return dt;
 }
-
-// 期間から「週ブロック（縦積み）」を生成（表示は月〜土のみ、日曜はスキップ）
 function buildWeekBlocks(startISO: string, endISO: string): WeekBlock[] {
   const start = parseISO(startISO);
   const end = parseISO(endISO);
@@ -136,7 +120,7 @@ function buildWeekBlocks(startISO: string, endISO: string): WeekBlock[] {
 
   for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
     const wd = weekdayJa(dt);
-    if (!OPEN_WEEKDAYS.includes(wd)) continue; // 日曜スキップ
+    if (!OPEN_WEEKDAYS.includes(wd)) continue;
     days.push({
       iso: toDateString(dt),
       label: toMD(dt),
@@ -160,31 +144,28 @@ function buildWeekBlocks(startISO: string, endISO: string): WeekBlock[] {
 
   for (let i = 0; i < days.length; i++) {
     const d = days[i];
-    if (d.weekdayJa === "月" && current.length > 0) {
-      flush();
-    }
+    if (d.weekdayJa === "月" && current.length > 0) flush();
     current.push(d);
-    if (d.weekdayJa === "土") {
-      flush();
-    }
+    if (d.weekdayJa === "土") flush();
   }
   flush();
 
   return blocks;
 }
-
-// 期間の週数ヒント（3 or 4週を想定）
 function estimateWeekCount(blocks: WeekBlock[]): number {
   return blocks.length;
 }
 
-// ---- コンポーネント ----
+const CELL_STYLE = {
+  open: { bg: "white", color: "green.600", symbol: "〇" },
+  closed: { bg: "gray.200", color: "red.600", symbol: "×" },
+};
 export default function TimetableManager({
   onNavigate,
 }: { onNavigate: (page: "home" | "timetable" | "students" | "teachers") => void }) {
   const toast = useToast();
 
-  // 既存の週ビュー関連（保持しておく）
+  // 既存の週ビュー state
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
   const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]);
@@ -198,11 +179,9 @@ export default function TimetableManager({
   const [editing, setEditing] = useState<{ date: string; slot: number; booth: number } | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  // ★ 個別印刷用 state（既存踏襲）
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
 
   useEffect(() => {
-    // 既存データ読み込み（踏襲）
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -228,7 +207,6 @@ export default function TimetableManager({
     } catch {}
   }, []);
 
-  // 既存のスケジュール生成（踏襲）
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
@@ -242,7 +220,7 @@ export default function TimetableManager({
   const teachers = teacherOptions.map((name, idx) => ({ id: `T${idx + 1}`, name }));
   const students = studentOptions.map((name, idx) => ({ id: `S${idx + 1}`, name }));
 
-  // ---- 新規: タームスケジュール入力の状態 ----
+  // 新規：タームスケジュール入力 state
   const [termName, setTermName] = useState<TermPreset>("第1ターム");
   const [startDateTerm, setStartDateTerm] = useState<string>("");
   const [endDateTerm, setEndDateTerm] = useState<string>("");
@@ -264,12 +242,37 @@ export default function TimetableManager({
     return e >= s;
   }, [startDateTerm, endDateTerm]);
 
-  // 期間変更時は閉校データをクリア（範囲外のゴミを避ける）
   useEffect(() => {
     setClosedSlotsByDate({});
   }, [startDateTerm, endDateTerm]);
 
-  // ---- 編集モーダル（既存踏襲）
+  // セル操作ロジック（〇/×切替）
+  const toggleSlot = (dateISO: string, slotIndex: number) => {
+    setClosedSlotsByDate((prev) => {
+      const current = prev[dateISO] || [];
+      const isClosed = current.includes(slotIndex);
+      const updated = isClosed
+        ? current.filter((s) => s !== slotIndex)
+        : [...current, slotIndex];
+      return { ...prev, [dateISO]: updated };
+    });
+  };
+
+  // ヘッダセルタップでその日の全時限を開校⇔閉校
+  const toggleDay = (dateISO: string) => {
+    setClosedSlotsByDate((prev) => {
+      const current = prev[dateISO] || [];
+      if (current.length === timeSlots.length) {
+        // 全部閉校 → 全部開校へ
+        return { ...prev, [dateISO]: [] };
+      } else {
+        // 全部開校 → 全部閉校へ
+        return { ...prev, [dateISO]: timeSlots.map((_, idx) => idx) };
+      }
+    });
+  };
+
+  // 既存の編集モーダル
   const openEdit = (date: string, slot: number, booth: number) => {
     setEditing({ date, slot, booth });
     onOpen();
@@ -297,7 +300,7 @@ export default function TimetableManager({
     setEditing(null);
   };
 
-  // ---- Render ----
+  // Render
   return (
     <Box p={4}>
       <Heading size="lg" mb={2}>時間割管理</Heading>
@@ -305,7 +308,7 @@ export default function TimetableManager({
         ホームに戻る
       </Button>
 
-      {/* 既存の週ビュー（そのまま残す） */}
+      {/* 既存の週ビュー */}
       <Text fontSize="sm" color="gray.600" mb={4}>
         開始日を選ぶと、その週の月曜から1週間ぶん（6日）を横に表示します。
       </Text>
@@ -319,11 +322,12 @@ export default function TimetableManager({
         />
       </HStack>
 
-      {/* ここから「塾スケジュール入力（ターム）」 */}
       <Divider my={6} />
+
+      {/* 新規：タームスケジュール入力 */}
       <Heading size="md" mb={2}>塾スケジュール入力（ターム）</Heading>
       <Text fontSize="sm" color="gray.600" mb={4}>
-        第1/第2タームを選び、期間を指定します。表示は月〜土のみ（日曜は非表示）です。3週または4週を想定しています。
+        タームを選び期間を指定してください。表示は月〜土のみ（日曜は非表示）。3週または4週が想定です。
       </Text>
 
       <VStack align="start" spacing={3} mb={4}>
@@ -334,29 +338,16 @@ export default function TimetableManager({
             <option value="第2ターム">第2ターム</option>
           </Select>
         </HStack>
-
         <HStack spacing={3}>
           <Text minW="80px">開始日</Text>
-          <Input
-            type="date"
-            value={startDateTerm}
-            onChange={(e) => setStartDateTerm(e.target.value)}
-            maxW="220px"
-          />
+          <Input type="date" value={startDateTerm} onChange={(e) => setStartDateTerm(e.target.value)} maxW="220px" />
         </HStack>
-
         <HStack spacing={3}>
           <Text minW="80px">終了日</Text>
-          <Input
-            type="date"
-            value={endDateTerm}
-            onChange={(e) => setEndDateTerm(e.target.value)}
-            maxW="220px"
-          />
+          <Input type="date" value={endDateTerm} onChange={(e) => setEndDateTerm(e.target.value)} maxW="220px" />
         </HStack>
       </VStack>
 
-      {/* バリデーション・ヒント */}
       <VStack align="start" spacing={2} mb={4}>
         {dateRangeValid && weekBlocks.length > 0 && (
           <Badge colorScheme={weekCount === 3 || weekCount === 4 ? "green" : "red"}>
@@ -368,33 +359,112 @@ export default function TimetableManager({
         )}
       </VStack>
 
-      {/* グリッド本体は Part 2 で追加 */}
-      {!dateRangeValid || weekBlocks.length === 0 ? (
-        <Text color="gray.600" mt={2}>
-          期間を入力すると、週ごとのスケジュール表（月〜土のみ）が表示されます。
-        </Text>
-      ) : (
-        <Text color="gray.700" mt={2}>
-          週ごとの表を縦に積んで表示します。セルは「〇/×」で開校/閉校を切り替え、日付ヘッダタップで1日全体を閉校可能（Part 2で実装）。
-        </Text>
+      {/* 週ごとの縦積みグリッド */}
+      {dateRangeValid && weekBlocks.length > 0 && (
+        <VStack align="stretch" spacing={8} mt={4}>
+          {weekBlocks.map((block, blockIdx) => (
+            <Box key={blockIdx} borderWidth="1px" borderRadius="md" overflowX="auto">
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>時限</Th>
+                    {block.dates.map((d) => {
+                      const allClosed =
+                        (closedSlotsByDate[d.iso] || []).length === timeSlots.length;
+                      const style = allClosed ? CELL_STYLE.closed : CELL_STYLE.open;
+                      return (
+                        <Th
+                          key={d.iso}
+                          textAlign="center"
+                          cursor="pointer"
+                          bg={style.bg}
+                          color={style.color}
+                          onClick={() => toggleDay(d.iso)}
+                        >
+                          {d.label}({d.weekdayJa})<br />
+                          {style.symbol}
+                        </Th>
+                      );
+                    })}
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {timeSlots.map((slotLabel, slotIdx) => (
+                    <Tr key={slotIdx}>
+                      <Td fontWeight="bold">{slotIdx + 1}限<br />{slotLabel}</Td>
+                      {block.dates.map((d) => {
+                        const closed = (closedSlotsByDate[d.iso] || []).includes(slotIdx);
+                        const style = closed ? CELL_STYLE.closed : CELL_STYLE.open;
+                        return (
+                          <Td
+                            key={d.iso + "-" + slotIdx}
+                            textAlign="center"
+                            cursor="pointer"
+                            bg={style.bg}
+                            color={style.color}
+                            onClick={() => toggleSlot(d.iso, slotIdx)}
+                          >
+                            {style.symbol}
+                          </Td>
+                        );
+                      })}
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          ))}
+        </VStack>
+      )}
+      {/* まとめて保存ボタン */}
+      {dateRangeValid && weekBlocks.length > 0 && (
+        <Box mt={6}>
+          <Button
+            colorScheme="blue"
+            onClick={() => {
+              const payload = {
+                termName,
+                startDate: startDateTerm,
+                endDate: endDateTerm,
+                closedSlots: closedSlotsByDate,
+              };
+              try {
+                localStorage.setItem("timetable-term", JSON.stringify(payload));
+                toast({
+                  title: "保存しました",
+                  description: "タームスケジュールを保存しました。",
+                  status: "success",
+                  duration: 3000,
+                  isClosable: true,
+                });
+              } catch (e) {
+                toast({
+                  title: "保存失敗",
+                  description: "保存時にエラーが発生しました。",
+                  status: "error",
+                  duration: 3000,
+                  isClosable: true,
+                });
+              }
+            }}
+          >
+            まとめて保存
+          </Button>
+        </Box>
       )}
 
       <Divider my={6} />
 
-      {/* 既存のビューは維持（踏襲） */}
+      {/* 既存の印刷ビュー */}
       <HStack spacing={3} mb={4} className="no-print">
-        <Button onClick={() => window.print()} colorScheme="blue">
-          全体を印刷
-        </Button>
+        <Button onClick={() => window.print()} colorScheme="blue">全体を印刷</Button>
         {studentOptions.map((name) => (
           <Button key={name} onClick={() => setSelectedStudent(name)}>
             {name} さん用に印刷
           </Button>
         ))}
         {selectedStudent && (
-          <Button onClick={() => setSelectedStudent(null)} colorScheme="gray">
-            戻る
-          </Button>
+          <Button onClick={() => setSelectedStudent(null)} colorScheme="gray">戻る</Button>
         )}
       </HStack>
 
