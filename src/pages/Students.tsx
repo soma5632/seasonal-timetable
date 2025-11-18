@@ -4,52 +4,43 @@ import React, { useEffect, useRef, useState } from "react";
 type Student = {
   id: number;
   name: string;
-  grade: string; // 学年
+  grade: string;
   subjects: { name: string; count: number }[];
   schedule: ScheduleItem[];
   ngTeachers: string[];
 };
 
 type ScheduleItem = {
-  date: [number, number]; // 例: [7, 21] → 7月21日
-  time: string;           // 例: "10:00-11:30"
-  tag: string;            // 例: "x" | "blank" | "triangle"
+  date: [number, number];
+  time: string;
+  tag: string;
 };
 
 type StudentsProps = {
   onNavigate: React.Dispatch<React.SetStateAction<"home" | "students" | "teachers" | "timetable">>;
 };
 
-// 学年と科目の選択肢
 const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];
 const subjectOptions = ["国語","数学","英語","理科","社会"];
 
-// ---- Component ----
 export default function Students({ onNavigate }: StudentsProps) {
   const [students, setStudents] = useState<Student[]>([]);
-
-  // 新規登録フォーム
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGrade, setNewGrade] = useState("");
 
-  // 詳細表示する生徒
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
-  // 科目＋回数入力用
+  // 科目＋回数
   const [newSubject, setNewSubject] = useState("");
-  const [newCount, setNewCount] = useState(0);
+  const [newCount, setNewCount] = useState<number | "">("");
 
-  // NG講師入力用
+  // NG講師
   const [newNgTeacher, setNewNgTeacher] = useState("");
 
-  // 撮影未or失敗状態
   const [inferenceTried, setInferenceTried] = useState(false);
-
-  // 推定されたスケジュール
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
-  // カメラ関連
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -82,15 +73,25 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   const addSubject = () => {
-    if (!selectedStudent || !newSubject || newCount <= 0) return;
+    if (!selectedStudent || !newSubject || newCount === "" || newCount <= 0) return;
     const updated = {
       ...selectedStudent,
-      subjects: [...selectedStudent.subjects, { name: newSubject, count: newCount }]
+      subjects: [...selectedStudent.subjects, { name: newSubject, count: Number(newCount) }]
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
     setNewSubject("");
-    setNewCount();
+    setNewCount("");
+  };
+
+  const removeSubject = (idx: number) => {
+    if (!selectedStudent) return;
+    const updated = {
+      ...selectedStudent,
+      subjects: selectedStudent.subjects.filter((_, i) => i !== idx)
+    };
+    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    setSelectedStudent(updated);
   };
 
   const addNgTeacher = () => {
@@ -104,79 +105,15 @@ export default function Students({ onNavigate }: StudentsProps) {
     setNewNgTeacher("");
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !selectedStudent) return;
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("student_id", String(selectedStudent.id));
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSchedule(data);
-      setInferenceTried(true);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
+  const removeNgTeacher = (idx: number) => {
+    if (!selectedStudent) return;
+    const updated = {
+      ...selectedStudent,
+      ngTeachers: selectedStudent.ngTeachers.filter((_, i) => i !== idx)
+    };
+    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    setSelectedStudent(updated);
   };
-  // ---- Camera ----
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraOn(true);
-    } catch (e) {
-      console.error("Camera start failed:", e);
-      setCameraOn(false);
-    }
-  };
-
-  const stopCamera = () => {
-    const video = videoRef.current;
-    if (video && video.srcObject) {
-      const tracks = (video.srcObject as MediaStream).getTracks();
-      tracks.forEach(t => t.stop());
-      video.srcObject = null;
-    }
-    setCameraOn(false);
-  };
-
-  const captureAndSend = async () => {
-    if (!videoRef.current || !canvasRef.current || !selectedStudent) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.92));
-    if (!blob) return;
-
-    const formData = new FormData();
-    formData.append("file", blob, "capture.jpg");
-    formData.append("student_id", String(selectedStudent.id));
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSchedule(data);
-      setInferenceTried(true);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
-  };
-
-  useEffect(() => () => stopCamera(), []);
-
   // ---- Render ----
   if (selectedStudent) {
     return (
@@ -188,14 +125,22 @@ export default function Students({ onNavigate }: StudentsProps) {
           <h3>科目と回数</h3>
           <ul>
             {selectedStudent.subjects.map((sub, idx) => (
-              <li key={idx}>{sub.name} ({sub.count}回)</li>
+              <li key={idx}>
+                {sub.name} ({sub.count}回)
+                <button onClick={() => removeSubject(idx)} style={{ marginLeft: 8 }}>削除</button>
+              </li>
             ))}
           </ul>
           <select value={newSubject} onChange={e => setNewSubject(e.target.value)}>
             <option value="">科目を選択</option>
             {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
-          <input type="number" placeholder="回数" value={newCount} onChange={e => setNewCount(Number(e.target.value))} />
+          <input
+            type="number"
+            placeholder="回数"
+            value={newCount}
+            onChange={e => setNewCount(e.target.value === "" ? "" : Number(e.target.value))}
+          />
           <button onClick={addSubject}>追加</button>
         </section>
 
@@ -203,19 +148,33 @@ export default function Students({ onNavigate }: StudentsProps) {
         <section style={{ marginTop: 16 }}>
           <h3>NG講師</h3>
           <ul>
-            {selectedStudent.ngTeachers.map((t, idx) => <li key={idx}>{t}</li>)}
+            {selectedStudent.ngTeachers.map((t, idx) => (
+              <li key={idx}>
+                {t}
+                <button onClick={() => removeNgTeacher(idx)} style={{ marginLeft: 8 }}>削除</button>
+              </li>
+            ))}
           </ul>
-          <input type="text" placeholder="講師名" value={newNgTeacher} onChange={e => setNewNgTeacher(e.target.value)} />
+          <input
+            type="text"
+            placeholder="講師名"
+            value={newNgTeacher}
+            onChange={e => setNewNgTeacher(e.target.value)}
+          />
           <button onClick={addNgTeacher}>追加</button>
         </section>
 
-        {/* AIスケジュール推定 */}
+        {/* AIスケジュール推定（前回のまま） */}
         <section style={{ marginTop: 24 }}>
           <h3>AIでスケジュール推定</h3>
           <div style={{ display: "flex", gap: 16 }}>
             <video ref={videoRef} autoPlay playsInline style={{ width: 320, background: "#000" }} />
             <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-              {!cameraOn ? <button onClick={startCamera}>カメラ起動</button> : <button onClick={stopCamera}>カメラ停止</button>}
+              {!cameraOn ? (
+                <button onClick={startCamera}>カメラ起動</button>
+              ) : (
+                <button onClick={stopCamera}>カメラ停止</button>
+              )}
               <button onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</button>
               <label>
                 <span style={{ padding: "6px 12px", border: "1px solid #ccc" }}>写真から選択</span>
@@ -263,9 +222,8 @@ export default function Students({ onNavigate }: StudentsProps) {
             placeholder="名前を入力"
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
           />
-          <select value={newGrade} onChange={e => setNewGrade(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}>
+          <select value={newGrade} onChange={e => setNewGrade(e.target.value)}>
             <option value="">学年を選択</option>
             {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
