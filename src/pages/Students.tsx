@@ -90,7 +90,7 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
     setNewSubject("");
-    setNewCount(0);
+    setNewCount();
   };
 
   const addNgTeacher = () => {
