@@ -41,6 +41,7 @@ export default function Students({ onNavigate }: StudentsProps) {
   const [inferenceTried, setInferenceTried] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
+  // カメラ関連
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -114,6 +115,93 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
   };
+  // ---- Camera ----
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraOn(true);
+    } catch (e) {
+      console.error("Camera start failed:", e);
+      setCameraOn(false);
+    }
+  };
+
+  const stopCamera = () => {
+    const video = videoRef.current;
+    if (video && video.srcObject) {
+      const tracks = (video.srcObject as MediaStream).getTracks();
+      tracks.forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    setCameraOn(false);
+  };
+
+  const captureAndSend = async () => {
+    if (!videoRef.current || !canvasRef.current || !selectedStudent) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92)
+    );
+    if (!blob) return;
+
+    const formData = new FormData();
+    formData.append("file", blob, "capture.jpg");
+    formData.append("student_id", String(selectedStudent.id));
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSchedule(data);
+      setInferenceTried(true);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !selectedStudent) return;
+    const file = e.target.files[0];
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("student_id", String(selectedStudent.id));
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSchedule(data);
+      setInferenceTried(true);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  // コンポーネントがアンマウントされたらカメラ停止
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
   // ---- Render ----
   if (selectedStudent) {
     return (
@@ -164,7 +252,7 @@ export default function Students({ onNavigate }: StudentsProps) {
           <button onClick={addNgTeacher}>追加</button>
         </section>
 
-        {/* AIスケジュール推定（前回のまま） */}
+        {/* AIスケジュール推定 */}
         <section style={{ marginTop: 24 }}>
           <h3>AIでスケジュール推定</h3>
           <div style={{ display: "flex", gap: 16 }}>
