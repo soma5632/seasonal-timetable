@@ -1,20 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Box,
-  Heading,
-  Text,
-  Button,
-  VStack,
-  HStack,
-  Input,
-  Select,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Badge,
+  Box, Heading, Text, Button, VStack, HStack, Input, Select,
+  Table, Thead, Tbody, Tr, Th, Td
 } from "@chakra-ui/react";
 
 // ---- Types ----
@@ -42,16 +29,9 @@ type StudentsProps = {
 const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];
 const subjectOptions = ["国語","数学","英語","理科","社会"];
 const timeSlots = [
-  "10:00〜11:30",
-  "11:10〜12:40",
-  "13:20〜14:50",
-  "14:30〜16:00",
-  "15:40〜17:10",
-  "16:05〜17:35",
-  "17:10〜18:40",
-  "18:15〜19:45",
-  "19:20〜20:50",
-  "20:30〜22:00",
+  "10:00〜11:30","11:10〜12:40","13:20〜14:50","14:30〜16:00",
+  "15:40〜17:10","16:05〜17:35","17:10〜18:40","18:15〜19:45",
+  "19:20〜20:50","20:30〜22:00",
 ];
 
 const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> = {
@@ -80,6 +60,11 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // スケジュール（タームごとに保持）
   const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: string } }>({});
+
+  // カメラ関連
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cameraOn, setCameraOn] = useState(false);
 
   // ---- Handlers ----
   const handleAddStudent = () => {
@@ -153,27 +138,104 @@ export default function Students({ onNavigate }: StudentsProps) {
     setSelectedStudent(updated);
   };
 
-  // ---- Schedule ----
-  // AI推定結果を表に埋め込む
-  const applyAISchedule = (items: ScheduleItem[], termId: string) => {
-    const mapped: { [iso: string]: { [slotIdx: number]: string } } = {};
-    items.forEach(item => {
-      const iso = `2025-${String(item.date[0]).padStart(2, "0")}-${String(item.date[1]).padStart(2, "0")}`;
-      const slotIdx = timeSlots.findIndex(slot => slot === item.time);
-      if (slotIdx >= 0) {
-        if (!mapped[iso]) mapped[iso] = {};
-        mapped[iso][slotIdx] = item.tag;
+  // ---- Camera ----
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
-    });
-    setScheduleByDate(mapped);
-    if (selectedStudent) {
-      const updated = {
-        ...selectedStudent,
-        schedules: { ...selectedStudent.schedules, [termId]: mapped },
-      };
-      setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
-      setSelectedStudent(updated);
+      setCameraOn(true);
+    } catch (e) {
+      console.error("Camera start failed:", e);
+      setCameraOn(false);
     }
+  };
+
+  const stopCamera = () => {
+    const video = videoRef.current;
+    if (video && video.srcObject) {
+      const tracks = (video.srcObject as MediaStream).getTracks();
+      tracks.forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    setCameraOn(false);
+  };
+
+  // ---- AI推定処理 ----
+  const captureAndSend = async () => {
+    if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92)
+    );
+    if (!blob) return;
+
+    const formData = new FormData();
+    formData.append("file", blob, "capture.jpg");
+    formData.append("student_id", String(selectedStudent.id));
+    formData.append("term_id", selectedTermId);
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ScheduleItem[] = await res.json();
+      applyAISchedule(data);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !selectedStudent || !selectedTermId) return;
+    const file = e.target.files[0];
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("student_id", String(selectedStudent.id));
+    formData.append("term_id", selectedTermId);
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ScheduleItem[] = await res.json();
+      applyAISchedule(data);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  // ---- Schedule ----
+  const applyAISchedule = (items: ScheduleItem[]) => {
+    setScheduleByDate(prev => {
+      const updated = { ...prev };
+      items.forEach(item => {
+        const iso = `2025-${String(item.date[0]).padStart(2,"0")}-${String(item.date[1]).padStart(2,"0")}`;
+        const slotIdx = timeSlots.findIndex(slot => slot === item.time);
+        if (slotIdx >= 0) {
+          if (!updated[iso]) updated[iso] = {};
+          updated[iso][slotIdx] = item.tag;
+        }
+      });
+      return updated;
+    });
   };
 
   // セル編集ロジック（タグ切替）
@@ -188,6 +250,11 @@ export default function Students({ onNavigate }: StudentsProps) {
       };
     });
   };
+  // コンポーネントがアンマウントされたらカメラ停止
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
   // ---- Render ----
   if (selectedStudent) {
     return (
@@ -256,9 +323,30 @@ export default function Students({ onNavigate }: StudentsProps) {
           <option value="term2">第2ターム</option>
         </Select>
 
+        {/* AIスケジュール推定 */}
+        {selectedTermId && (
+          <Box mt={4}>
+            <Heading size="sm" mb={2}>AIでスケジュール推定</Heading>
+            <HStack spacing={3}>
+              {!cameraOn ? (
+                <Button onClick={startCamera}>カメラ起動</Button>
+              ) : (
+                <Button onClick={stopCamera}>カメラ停止</Button>
+              )}
+              <Button onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
+              <label>
+                <span style={{ padding: "6px 12px", border: "1px solid #ccc" }}>写真から選択</span>
+                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
+              </label>
+            </HStack>
+            <video ref={videoRef} autoPlay playsInline style={{ width: 320, background: "#000", marginTop: 8 }} />
+            <canvas ref={canvasRef} style={{ display: "none" }} />
+          </Box>
+        )}
+
         {/* スケジュール表 */}
         {selectedTermId && Object.keys(scheduleByDate).length > 0 && (
-          <Box mt={4}>
+          <Box mt={6}>
             <Table size="sm" variant="simple">
               <Thead>
                 <Tr>
