@@ -91,7 +91,7 @@ function generate1WeekMonToSat(startMonday: Date) {
 }
 
 // ===== ターム管理 =====
-type TermPreset = "第1ターム" | "第2ターム";
+type TermPreset = "第1ターム" | "第2ターム" | "第3ターム" | "第4ターム";
 type WeekBlockDate = { iso: string; label: string; weekdayJa: string };
 type WeekBlock = { dates: WeekBlockDate[] };
 
@@ -285,6 +285,8 @@ export default function TermManager({
           <Select value={termName} onChange={(e) => setTermName(e.target.value as TermPreset)} maxW="220px">
             <option value="第1ターム">第1ターム</option>
             <option value="第2ターム">第2ターム</option>
+            <option value="第3ターム">第3ターム</option>
+            <option value="第4ターム">第4ターム</option>
           </Select>
         </HStack>
         <HStack spacing={3}>
