@@ -77,8 +77,11 @@ export default function Students({ onNavigate }: StudentsProps) {
             .map(([id, v]: any) => ({ id, name: v.termName, startDate: v.startDate, endDate: v.endDate }));
           setTerms(termList);
         }
+        if (userData && userData.students) {
+          setStudents(userData.students);
+        }
       } catch (e) {
-        console.error("ターム読み込み失敗:", e);
+        console.error("データ読み込み失敗:", e);
       }
     }
   }, []);
@@ -89,8 +92,17 @@ export default function Students({ onNavigate }: StudentsProps) {
       ...selectedStudent,
       subjects: [...selectedStudent.subjects, { name: newSubject, count: Number(newCount) }],
     };
-    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
     setSelectedStudent(updated);
+
+    // 保存
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
     setNewSubject("");
     setNewCount("");
   };
@@ -101,8 +113,15 @@ export default function Students({ onNavigate }: StudentsProps) {
       ...selectedStudent,
       subjects: selectedStudent.subjects.filter((_, i) => i !== idx),
     };
-    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
     setSelectedStudent(updated);
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
 
   // ---- NG Teachers ----
@@ -112,8 +131,16 @@ export default function Students({ onNavigate }: StudentsProps) {
       ...selectedStudent,
       ngTeachers: [...selectedStudent.ngTeachers, newNgTeacher.trim()],
     };
-    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
     setSelectedStudent(updated);
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
     setNewNgTeacher("");
   };
 
@@ -123,8 +150,15 @@ export default function Students({ onNavigate }: StudentsProps) {
       ...selectedStudent,
       ngTeachers: selectedStudent.ngTeachers.filter((_, i) => i !== idx),
     };
-    setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
     setSelectedStudent(updated);
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
 
   // ---- Camera ----
@@ -158,6 +192,20 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   // ---- AI推定処理 ----
+  const applyAISchedule = (items: ScheduleItem[]) => {
+    setScheduleByDate(prev => {
+      const updated = { ...prev };
+      items.forEach(item => {
+        const iso = `2025-${String(item.date[0]).padStart(2,"0")}-${String(item.date[1]).padStart(2,"0")}`;
+        const slotIdx = timeSlots.findIndex(slot => slot === item.time);
+        if (slotIdx >= 0) {
+          if (!updated[iso]) updated[iso] = {};
+          updated[iso][slotIdx] = item.tag;
+        }
+      });
+      return updated;
+    });
+  };
   const captureAndSend = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
 
@@ -215,23 +263,31 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
   };
 
-  // ---- Schedule ----
-  const applyAISchedule = (items: ScheduleItem[]) => {
-    setScheduleByDate(prev => {
-      const updated = { ...prev };
-      items.forEach(item => {
-        const iso = `2025-${String(item.date[0]).padStart(2,"0")}-${String(item.date[1]).padStart(2,"0")}`;
-        const slotIdx = timeSlots.findIndex(slot => slot === item.time);
-        if (slotIdx >= 0) {
-          if (!updated[iso]) updated[iso] = {};
-          updated[iso][slotIdx] = item.tag;
-        }
-      });
-      return updated;
-    });
-  };
+  // ---- ターム選択時に表を生成＆既存データを読み込み ----
+  useEffect(() => {
+    if (!selectedTermId || !selectedStudent) return;
 
-  // セル編集ロジック（タグ切替）
+    const term = terms.find(t => t.id === selectedTermId);
+    if (!term) return;
+
+    const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
+    const start = new Date(term.startDate);
+    const end = new Date(term.endDate);
+
+    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+      const iso = dt.toISOString().split("T")[0];
+      empty[iso] = {};
+      timeSlots.forEach((_, idx) => {
+        empty[iso][idx] = "blank";
+      });
+    }
+
+    // 既存スケジュールがあればそれを優先
+    const existing = selectedStudent.schedules[selectedTermId];
+    setScheduleByDate(existing || empty);
+  }, [selectedTermId, selectedStudent]);
+
+  // ---- セル編集ロジック ----
   const toggleTag = (dateISO: string, slotIdx: number) => {
     setScheduleByDate(prev => {
       const current = prev[dateISO]?.[slotIdx] || "blank";
@@ -242,6 +298,24 @@ export default function Students({ onNavigate }: StudentsProps) {
         [dateISO]: { ...(prev[dateISO] || {}), [slotIdx]: next },
       };
     });
+  };
+
+  // ---- スケジュール保存 ----
+  const saveSchedule = () => {
+    if (!selectedStudent || !selectedTermId) return;
+    const updated = {
+      ...selectedStudent,
+      schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
+    };
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
+    setSelectedStudent(updated);
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
   // コンポーネントがアンマウントされたらカメラ停止
   useEffect(() => {
@@ -375,6 +449,7 @@ export default function Students({ onNavigate }: StudentsProps) {
                 ))}
               </Tbody>
             </Table>
+            <Button mt={4} colorScheme="blue" onClick={saveSchedule}>このタームのスケジュールを保存</Button>
           </Box>
         )}
 
@@ -415,7 +490,15 @@ export default function Students({ onNavigate }: StudentsProps) {
                 schedules: {},
                 ngTeachers: [],
               };
-              setStudents(prev => [...prev, newStudent]);
+              const updated = [...students, newStudent];
+              setStudents(updated);
+
+              const raw = localStorage.getItem(STORAGE_KEY);
+              const appData = raw ? JSON.parse(raw) : {};
+              if (!appData["user1"]) appData["user1"] = { students: [] };
+              appData["user1"].students = updated;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
               setNewName("");
               setNewGrade("");
               setShowForm(false);
