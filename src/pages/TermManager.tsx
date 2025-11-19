@@ -6,7 +6,6 @@ import {
   Input,
   Text,
   Button,
-  useDisclosure,
   useToast,
   Select,
   VStack,
@@ -19,11 +18,8 @@ import {
   Th,
   Td,
 } from "@chakra-ui/react";
-import WeeklySchedule from "../components/WeeklySchedule";
-import EditLessonModal from "../components/EditLessonModal";
-import StudentSchedule from "../components/StudentSchedule";
 
-// ===== 既存領域 =====
+// ===== 型定義 =====
 export type Lesson = {
   id: string;
   startTime: string;
@@ -66,6 +62,7 @@ const timeSlots: string[] = [
 const BOOTH_COUNT = 5;
 const STORAGE_KEY = "timetable-week-booth-closed";
 
+// ===== ユーティリティ =====
 function toDateString(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -93,7 +90,7 @@ function generate1WeekMonToSat(startMonday: Date) {
   return dates;
 }
 
-// ===== 新規：ターム管理 =====
+// ===== ターム管理 =====
 type TermPreset = "第1ターム" | "第2ターム";
 type WeekBlockDate = { iso: string; label: string; weekdayJa: string };
 type WeekBlock = { dates: WeekBlockDate[] };
@@ -160,12 +157,13 @@ const CELL_STYLE = {
   open: { bg: "white", color: "green.600", symbol: "〇" },
   closed: { bg: "gray.200", color: "red.600", symbol: "×" },
 };
+
 export default function TermManager({
   onNavigate,
 }: { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers' | 'term') => void }) {
   const toast = useToast();
 
-  // 既存の週ビュー state
+  // state
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
   const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]);
@@ -176,10 +174,6 @@ export default function TermManager({
 
   const [teacherOptions, setTeacherOptions] = useState<string[]>([]);
   const [studentOptions, setStudentOptions] = useState<string[]>([]);
-  const [editing, setEditing] = useState<{ date: string; slot: number; booth: number } | null>(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -206,7 +200,6 @@ export default function TermManager({
       }
     } catch {}
   }, []);
-
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
@@ -220,7 +213,7 @@ export default function TermManager({
   const teachers = teacherOptions.map((name, idx) => ({ id: `T${idx + 1}`, name }));
   const students = studentOptions.map((name, idx) => ({ id: `S${idx + 1}`, name }));
 
-  // 新規：タームスケジュール入力 state
+  // タームスケジュール入力 state
   const [termName, setTermName] = useState<TermPreset>("第1ターム");
   const [startDateTerm, setStartDateTerm] = useState<string>("");
   const [endDateTerm, setEndDateTerm] = useState<string>("");
@@ -263,68 +256,24 @@ export default function TermManager({
     setClosedSlotsByDate((prev) => {
       const current = prev[dateISO] || [];
       if (current.length === timeSlots.length) {
-        // 全部閉校 → 全部開校へ
         return { ...prev, [dateISO]: [] };
       } else {
-        // 全部開校 → 全部閉校へ
         return { ...prev, [dateISO]: timeSlots.map((_, idx) => idx) };
       }
     });
   };
 
-  // 既存の編集モーダル
-  const openEdit = (date: string, slot: number, booth: number) => {
-    setEditing({ date, slot, booth });
-    onOpen();
-  };
-  const handleSaveLesson = (lesson: Lesson) => {
-    if (!editing) return;
-    setTimetable((prev) => ({
-      ...prev,
-      [editing.date]: {
-        ...prev[editing.date],
-        [editing.slot]: {
-          ...prev[editing.date]?.[editing.slot],
-          [editing.booth]: {
-            ...lesson,
-            boothIndex: editing.booth,
-            startTime: timeSlots[editing.slot].split("〜")[0],
-            endTime: timeSlots[editing.slot].split("〜")[1],
-            students: lesson.students ?? [],
-            subjects: (lesson.students ?? []).map((s) => s.subject),
-          },
-        },
-      },
-    }));
-    onClose();
-    setEditing(null);
-  };
-
   // Render
   return (
     <Box p={4}>
-      <Heading size="lg" mb={2}>時間割管理</Heading>
+      <Heading size="lg" mb={2}>ターム管理</Heading>
       <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
         ホームに戻る
       </Button>
 
-      {/* 既存の週ビュー */}
-      <Text fontSize="sm" color="gray.600" mb={4}>
-        開始日を選ぶと、その週の月曜から1週間ぶん（6日）を横に表示します。
-      </Text>
-      <HStack spacing={3} mb={4}>
-        <Text>開始日</Text>
-        <Input
-          type="date"
-          value={baseDate}
-          onChange={(e) => setBaseDate(e.target.value)}
-          maxW="220px"
-        />
-      </HStack>
-
       <Divider my={6} />
 
-      {/* 新規：タームスケジュール入力 */}
+      {/* タームスケジュール入力 */}
       <Heading size="md" mb={2}>塾スケジュール入力（ターム）</Heading>
       <Text fontSize="sm" color="gray.600" mb={4}>
         タームを選び期間を指定してください。表示は月〜土のみ（日曜は非表示）。3週または4週が想定です。
@@ -358,7 +307,6 @@ export default function TermManager({
           <Text fontSize="sm" color="red.600">開始日と終了日を正しく入力してください。</Text>
         )}
       </VStack>
-
       {/* 週ごとの縦積みグリッド */}
       {dateRangeValid && weekBlocks.length > 0 && (
         <VStack align="stretch" spacing={8} mt={4}>
@@ -416,6 +364,7 @@ export default function TermManager({
           ))}
         </VStack>
       )}
+
       {/* まとめて保存ボタン */}
       {dateRangeValid && weekBlocks.length > 0 && (
         <Box mt={6}>
@@ -452,59 +401,6 @@ export default function TermManager({
           </Button>
         </Box>
       )}
-
-      <Divider my={6} />
-
-      {/* 既存の印刷ビュー */}
-      <HStack spacing={3} mb={4} className="no-print">
-        <Button onClick={() => window.print()} colorScheme="blue">全体を印刷</Button>
-        {studentOptions.map((name) => (
-          <Button key={name} onClick={() => setSelectedStudent(name)}>
-            {name} さん用に印刷
-          </Button>
-        ))}
-        {selectedStudent && (
-          <Button onClick={() => setSelectedStudent(null)} colorScheme="gray">戻る</Button>
-        )}
-      </HStack>
-
-      {!selectedStudent ? (
-        <WeeklySchedule
-          baseDate={baseDate}
-          teachers={teachers}
-          students={students}
-          schedules={schedules}
-          onEdit={openEdit}
-        />
-      ) : (
-        <StudentSchedule
-          studentName={selectedStudent}
-          lessons={schedules.flatMap((s) => s.lessons)}
-        />
-      )}
-
-      <EditLessonModal
-        isOpen={isOpen}
-        onClose={() => { onClose(); setEditing(null); }}
-        onSave={handleSaveLesson}
-        teacherOptions={teacherOptions}
-        studentOptions={studentOptions}
-        initialData={
-          editing
-            ? timetable[editing.date]?.[editing.slot]?.[editing.booth] || {
-                id: "",
-                startTime: timeSlots[editing.slot].split("〜")[0],
-                endTime: timeSlots[editing.slot].split("〜")[1],
-                subject: "",
-                teacherId: "",
-                studentId: "",
-                boothIndex: editing.booth,
-                students: [],
-                subjects: [],
-              }
-            : null
-        }
-      />
     </Box>
   );
 }
