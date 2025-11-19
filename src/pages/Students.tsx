@@ -4,7 +4,6 @@ import {
   Table, Thead, Tbody, Tr, Th, Td
 } from "@chakra-ui/react";
 
-// ---- Types ----
 type ScheduleItem = {
   date: [number, number]; // (month, day)
   time: string;
@@ -41,6 +40,8 @@ const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> =
   "blank": { symbol: "", color: "gray.400", bg: "white" },
 };
 
+const STORAGE_KEY = "app-data";
+
 export default function Students({ onNavigate }: StudentsProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -61,38 +62,26 @@ export default function Students({ onNavigate }: StudentsProps) {
   // スケジュール（タームごとに保持）
   const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: string } }>({});
 
-  // カメラ関連
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cameraOn, setCameraOn] = useState(false);
+  // ターム一覧（localStorageから読み込む）
+  const [terms, setTerms] = useState<{ id: string; name: string; startDate: string; endDate: string }[]>([]);
 
-  // ---- Handlers ----
-  const handleAddStudent = () => {
-    if (!newName.trim() || !newGrade) return;
-    const newStudent: Student = {
-      id: Date.now(),
-      name: newName.trim(),
-      grade: newGrade,
-      subjects: [],
-      schedules: {},
-      ngTeachers: [],
-    };
-    setStudents(prev => [...prev, newStudent]);
-    setNewName("");
-    setNewGrade("");
-    setShowForm(false);
-  };
-
-  const handleSelectStudent = (student: Student) => {
-    setSelectedStudent(student);
-    setSelectedTermId("");
-    setScheduleByDate({});
-  };
-
-  const handleBackToList = () => {
-    onNavigate("home");
-    setSelectedStudent(null);
-  };
+  useEffect(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        const userData = parsed["user1"];
+        if (userData && userData.terms) {
+          const termList = Object.entries(userData.terms)
+            .filter(([_, v]) => v !== null)
+            .map(([id, v]: any) => ({ id, name: v.termName, startDate: v.startDate, endDate: v.endDate }));
+          setTerms(termList);
+        }
+      } catch (e) {
+        console.error("ターム読み込み失敗:", e);
+      }
+    }
+  }, []);
   // ---- Subjects ----
   const addSubject = () => {
     if (!selectedStudent || !newSubject || newCount === "" || newCount <= 0) return;
@@ -139,6 +128,10 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   // ---- Camera ----
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cameraOn, setCameraOn] = useState(false);
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -318,9 +311,11 @@ export default function Students({ onNavigate }: StudentsProps) {
           maxW="240px"
           mt={2}
         >
-          {/* 実際には TermManager で登録したターム一覧をここに渡す */}
-          <option value="term1">第1ターム</option>
-          <option value="term2">第2ターム</option>
+          {terms.map(term => (
+            <option key={term.id} value={term.id}>
+              {term.name} ({term.startDate}〜{term.endDate})
+            </option>
+          ))}
         </Select>
 
         {/* AIスケジュール推定 */}
@@ -384,7 +379,7 @@ export default function Students({ onNavigate }: StudentsProps) {
         )}
 
         <Box mt={6}>
-          <Button onClick={handleBackToList}>一覧に戻る</Button>
+          <Button onClick={() => { setSelectedStudent(null); onNavigate("home"); }}>一覧に戻る</Button>
         </Box>
       </Box>
     );
@@ -410,7 +405,21 @@ export default function Students({ onNavigate }: StudentsProps) {
             {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </Select>
           <HStack>
-            <Button onClick={handleAddStudent}>登録</Button>
+            <Button onClick={() => {
+              if (!newName.trim() || !newGrade) return;
+              const newStudent: Student = {
+                id: Date.now(),
+                name: newName.trim(),
+                grade: newGrade,
+                subjects: [],
+                schedules: {},
+                ngTeachers: [],
+              };
+              setStudents(prev => [...prev, newStudent]);
+              setNewName("");
+              setNewGrade("");
+              setShowForm(false);
+            }}>登録</Button>
             <Button onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</Button>
           </HStack>
         </VStack>
@@ -428,7 +437,7 @@ export default function Students({ onNavigate }: StudentsProps) {
             boxShadow="sm"
           >
             <Text fontWeight="bold" mb={2}>{s.name}（{s.grade}）</Text>
-            <Button size="sm" onClick={() => handleSelectStudent(s)}>詳細を見る</Button>
+            <Button size="sm" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
           </Box>
         ))}
       </HStack>
