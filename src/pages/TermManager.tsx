@@ -60,7 +60,9 @@ const timeSlots: string[] = [
 ];
 
 const BOOTH_COUNT = 5;
-const STORAGE_KEY = "timetable-week-booth-closed";
+
+// 将来的にユーザーごとに分けるためのキー
+const STORAGE_KEY = "app-data";
 
 // ===== ユーティリティ =====
 function toDateString(d: Date) {
@@ -180,9 +182,13 @@ export default function TermManager({
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setTimetable(parsed.timetable || {});
-        setClosedDays(parsed.closedDays || []);
-        setClosedSlotsLegacy(parsed.closedSlots || {});
+        // 将来ログイン機能を見据えて user1 固定
+        const userData = parsed["user1"];
+        if (userData) {
+          setTimetable(userData.timetable || {});
+          setClosedDays(userData.closedDays || []);
+          setClosedSlotsLegacy(userData.closedSlots || {});
+        }
       } catch {}
     }
     try {
@@ -200,6 +206,7 @@ export default function TermManager({
       }
     } catch {}
   }, []);
+
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
@@ -210,6 +217,7 @@ export default function TermManager({
     }
     return { date, lessons };
   });
+
   const teachers = teacherOptions.map((name, idx) => ({ id: `T${idx + 1}`, name }));
   const students = studentOptions.map((name, idx) => ({ id: `S${idx + 1}`, name }));
 
@@ -262,7 +270,6 @@ export default function TermManager({
       }
     });
   };
-
   // Render
   return (
     <Box p={4}>
@@ -309,6 +316,7 @@ export default function TermManager({
           <Text fontSize="sm" color="red.600">開始日と終了日を正しく入力してください。</Text>
         )}
       </VStack>
+
       {/* 週ごとの縦積みグリッド */}
       {dateRangeValid && weekBlocks.length > 0 && (
         <VStack align="stretch" spacing={8} mt={4}>
@@ -379,11 +387,31 @@ export default function TermManager({
                 endDate: endDateTerm,
                 closedSlots: closedSlotsByDate,
               };
+
               try {
-                localStorage.setItem("timetable-term", JSON.stringify(payload));
+                const userId = "user1"; // 仮のユーザーID（将来ログイン機能で置き換え）
+
+                const raw = localStorage.getItem(STORAGE_KEY);
+                const appData = raw ? JSON.parse(raw) : {};
+
+                if (!appData[userId]) {
+                  appData[userId] = {
+                    terms: {
+                      "第1ターム": null,
+                      "第2ターム": null,
+                      "第3ターム": null,
+                      "第4ターム": null,
+                    },
+                  };
+                }
+
+                appData[userId].terms[termName] = payload;
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
                 toast({
                   title: "保存しました",
-                  description: "タームスケジュールを保存しました。",
+                  description: `${termName} のスケジュールを保存しました。`,
                   status: "success",
                   duration: 3000,
                   isClosable: true,
