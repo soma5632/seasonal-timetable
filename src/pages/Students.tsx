@@ -1,34 +1,71 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  Box,
+  Heading,
+  Text,
+  Button,
+  VStack,
+  HStack,
+  Input,
+  Select,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Badge,
+} from "@chakra-ui/react";
 
 // ---- Types ----
+type ScheduleItem = {
+  date: [number, number]; // (month, day)
+  time: string;
+  tag: "×" | "slash" | "triangle" | "blank";
+};
+
 type Student = {
   id: number;
   name: string;
   grade: string;
   subjects: { name: string; count: number }[];
-  schedule: ScheduleItem[];
+  schedules: { [termId: string]: { [iso: string]: { [slotIdx: number]: string } } };
   ngTeachers: string[];
 };
 
-type ScheduleItem = {
-  date: [number, number];
-  time: string;
-  tag: string;
-};
-
 type StudentsProps = {
-  onNavigate: React.Dispatch<React.SetStateAction<'home' | 'timetable' | 'students' | 'teachers' | 'term'>>;
+  onNavigate: React.Dispatch<
+    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term">
+  >;
 };
 
 const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];
 const subjectOptions = ["国語","数学","英語","理科","社会"];
+const timeSlots = [
+  "10:00〜11:30",
+  "11:10〜12:40",
+  "13:20〜14:50",
+  "14:30〜16:00",
+  "15:40〜17:10",
+  "16:05〜17:35",
+  "17:10〜18:40",
+  "18:15〜19:45",
+  "19:20〜20:50",
+  "20:30〜22:00",
+];
+
+const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> = {
+  "×": { symbol: "×", color: "red.600", bg: "gray.100" },
+  "slash": { symbol: "／", color: "blue.600", bg: "gray.100" },
+  "triangle": { symbol: "△", color: "orange.600", bg: "gray.100" },
+  "blank": { symbol: "", color: "gray.400", bg: "white" },
+};
 
 export default function Students({ onNavigate }: StudentsProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGrade, setNewGrade] = useState("");
-
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   // 科目＋回数
@@ -38,13 +75,11 @@ export default function Students({ onNavigate }: StudentsProps) {
   // NG講師
   const [newNgTeacher, setNewNgTeacher] = useState("");
 
-  const [inferenceTried, setInferenceTried] = useState(false);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  // ターム選択
+  const [selectedTermId, setSelectedTermId] = useState<string>("");
 
-  // カメラ関連
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cameraOn, setCameraOn] = useState(false);
+  // スケジュール（タームごとに保持）
+  const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: string } }>({});
 
   // ---- Handlers ----
   const handleAddStudent = () => {
@@ -54,8 +89,8 @@ export default function Students({ onNavigate }: StudentsProps) {
       name: newName.trim(),
       grade: newGrade,
       subjects: [],
-      schedule: [],
-      ngTeachers: []
+      schedules: {},
+      ngTeachers: [],
     };
     setStudents(prev => [...prev, newStudent]);
     setNewName("");
@@ -65,19 +100,20 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
-    setSchedule(student.schedule || []);
+    setSelectedTermId("");
+    setScheduleByDate({});
   };
 
   const handleBackToList = () => {
     onNavigate("home");
     setSelectedStudent(null);
   };
-
+  // ---- Subjects ----
   const addSubject = () => {
     if (!selectedStudent || !newSubject || newCount === "" || newCount <= 0) return;
     const updated = {
       ...selectedStudent,
-      subjects: [...selectedStudent.subjects, { name: newSubject, count: Number(newCount) }]
+      subjects: [...selectedStudent.subjects, { name: newSubject, count: Number(newCount) }],
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
@@ -89,17 +125,18 @@ export default function Students({ onNavigate }: StudentsProps) {
     if (!selectedStudent) return;
     const updated = {
       ...selectedStudent,
-      subjects: selectedStudent.subjects.filter((_, i) => i !== idx)
+      subjects: selectedStudent.subjects.filter((_, i) => i !== idx),
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
   };
 
+  // ---- NG Teachers ----
   const addNgTeacher = () => {
     if (!selectedStudent || !newNgTeacher.trim()) return;
     const updated = {
       ...selectedStudent,
-      ngTeachers: [...selectedStudent.ngTeachers, newNgTeacher.trim()]
+      ngTeachers: [...selectedStudent.ngTeachers, newNgTeacher.trim()],
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
@@ -110,238 +147,203 @@ export default function Students({ onNavigate }: StudentsProps) {
     if (!selectedStudent) return;
     const updated = {
       ...selectedStudent,
-      ngTeachers: selectedStudent.ngTeachers.filter((_, i) => i !== idx)
+      ngTeachers: selectedStudent.ngTeachers.filter((_, i) => i !== idx),
     };
     setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
     setSelectedStudent(updated);
   };
-  // ---- Camera ----
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+
+  // ---- Schedule ----
+  // AI推定結果を表に埋め込む
+  const applyAISchedule = (items: ScheduleItem[], termId: string) => {
+    const mapped: { [iso: string]: { [slotIdx: number]: string } } = {};
+    items.forEach(item => {
+      const iso = `2025-${String(item.date[0]).padStart(2, "0")}-${String(item.date[1]).padStart(2, "0")}`;
+      const slotIdx = timeSlots.findIndex(slot => slot === item.time);
+      if (slotIdx >= 0) {
+        if (!mapped[iso]) mapped[iso] = {};
+        mapped[iso][slotIdx] = item.tag;
       }
-      setCameraOn(true);
-    } catch (e) {
-      console.error("Camera start failed:", e);
-      setCameraOn(false);
+    });
+    setScheduleByDate(mapped);
+    if (selectedStudent) {
+      const updated = {
+        ...selectedStudent,
+        schedules: { ...selectedStudent.schedules, [termId]: mapped },
+      };
+      setStudents(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+      setSelectedStudent(updated);
     }
   };
 
-  const stopCamera = () => {
-    const video = videoRef.current;
-    if (video && video.srcObject) {
-      const tracks = (video.srcObject as MediaStream).getTracks();
-      tracks.forEach(t => t.stop());
-      video.srcObject = null;
-    }
-    setCameraOn(false);
+  // セル編集ロジック（タグ切替）
+  const toggleTag = (dateISO: string, slotIdx: number) => {
+    setScheduleByDate(prev => {
+      const current = prev[dateISO]?.[slotIdx] || "blank";
+      const order = ["blank", "×", "slash", "triangle"];
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      return {
+        ...prev,
+        [dateISO]: { ...(prev[dateISO] || {}), [slotIdx]: next },
+      };
+    });
   };
-
-  const captureAndSend = async () => {
-    if (!videoRef.current || !canvasRef.current || !selectedStudent) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise<Blob | null>(resolve =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92)
-    );
-    if (!blob) return;
-
-    const formData = new FormData();
-    formData.append("file", blob, "capture.jpg");
-    formData.append("student_id", String(selectedStudent.id));
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSchedule(data);
-      setInferenceTried(true);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !selectedStudent) return;
-    const file = e.target.files[0];
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("student_id", String(selectedStudent.id));
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSchedule(data);
-      setInferenceTried(true);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
-  };
-
-  // コンポーネントがアンマウントされたらカメラ停止
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
   // ---- Render ----
   if (selectedStudent) {
     return (
-      <div style={{ padding: 20 }}>
-        <h2>{selectedStudent.name}（{selectedStudent.grade}）の詳細</h2>
+      <Box p={4}>
+        <Heading size="md" mb={2}>
+          {selectedStudent.name}（{selectedStudent.grade}）の詳細
+        </Heading>
 
         {/* 科目＋回数 */}
-        <section style={{ marginTop: 16 }}>
-          <h3>科目と回数</h3>
-          <ul>
-            {selectedStudent.subjects.map((sub, idx) => (
-              <li key={idx}>
-                {sub.name} ({sub.count}回)
-                <button onClick={() => removeSubject(idx)} style={{ marginLeft: 8 }}>削除</button>
-              </li>
-            ))}
-          </ul>
-          <select value={newSubject} onChange={e => setNewSubject(e.target.value)}>
-            <option value="">科目を選択</option>
-            {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-          <input
-            type="number"
-            placeholder="回数"
-            value={newCount}
-            onChange={e => setNewCount(e.target.value === "" ? "" : Number(e.target.value))}
-          />
-          <button onClick={addSubject}>追加</button>
-        </section>
+        <Heading size="sm" mt={4}>科目と回数</Heading>
+        <VStack align="start" spacing={2} mt={2}>
+          {selectedStudent.subjects.map((sub, idx) => (
+            <HStack key={idx}>
+              <Text>{sub.name} ({sub.count}回)</Text>
+              <Button size="xs" onClick={() => removeSubject(idx)}>削除</Button>
+            </HStack>
+          ))}
+          <HStack>
+            <Select value={newSubject} onChange={e => setNewSubject(e.target.value)} maxW="140px">
+              <option value="">科目を選択</option>
+              {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </Select>
+            <Input
+              type="number"
+              placeholder="回数"
+              value={newCount}
+              onChange={e => setNewCount(e.target.value === "" ? "" : Number(e.target.value))}
+              maxW="80px"
+            />
+            <Button size="sm" onClick={addSubject}>追加</Button>
+          </HStack>
+        </VStack>
 
         {/* NG講師 */}
-        <section style={{ marginTop: 16 }}>
-          <h3>NG講師</h3>
-          <ul>
-            {selectedStudent.ngTeachers.map((t, idx) => (
-              <li key={idx}>
-                {t}
-                <button onClick={() => removeNgTeacher(idx)} style={{ marginLeft: 8 }}>削除</button>
-              </li>
-            ))}
-          </ul>
-          <input
-            type="text"
-            placeholder="講師名"
-            value={newNgTeacher}
-            onChange={e => setNewNgTeacher(e.target.value)}
-          />
-          <button onClick={addNgTeacher}>追加</button>
-        </section>
+        <Heading size="sm" mt={6}>NG講師</Heading>
+        <VStack align="start" spacing={2} mt={2}>
+          {selectedStudent.ngTeachers.map((t, idx) => (
+            <HStack key={idx}>
+              <Text>{t}</Text>
+              <Button size="xs" onClick={() => removeNgTeacher(idx)}>削除</Button>
+            </HStack>
+          ))}
+          <HStack>
+            <Input
+              type="text"
+              placeholder="講師名"
+              value={newNgTeacher}
+              onChange={e => setNewNgTeacher(e.target.value)}
+              maxW="160px"
+            />
+            <Button size="sm" onClick={addNgTeacher}>追加</Button>
+          </HStack>
+        </VStack>
 
-        {/* AIスケジュール推定 */}
-        <section style={{ marginTop: 24 }}>
-          <h3>AIでスケジュール推定</h3>
-          <div style={{ display: "flex", gap: 16 }}>
-            <video ref={videoRef} autoPlay playsInline style={{ width: 320, background: "#000" }} />
-            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-              {!cameraOn ? (
-                <button onClick={startCamera}>カメラ起動</button>
-              ) : (
-                <button onClick={stopCamera}>カメラ停止</button>
-              )}
-              <button onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</button>
-              <label>
-                <span style={{ padding: "6px 12px", border: "1px solid #ccc" }}>写真から選択</span>
-                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
-              </label>
-            </div>
-          </div>
-        </section>
+        {/* ターム選択 */}
+        <Heading size="sm" mt={6}>スケジュール（ターム別）</Heading>
+        <Select
+          placeholder="タームを選択"
+          value={selectedTermId}
+          onChange={e => setSelectedTermId(e.target.value)}
+          maxW="240px"
+          mt={2}
+        >
+          {/* 実際には TermManager で登録したターム一覧をここに渡す */}
+          <option value="term1">第1ターム</option>
+          <option value="term2">第2ターム</option>
+        </Select>
 
-        <section style={{ marginTop: 24 }}>
-          <h3>推定スケジュール</h3>
-          {!inferenceTried ? (
-            <p style={{ color: "#666" }}>まだ推定していません。カメラで撮影するか写真を選択してください。</p>
-          ) : schedule.length === 0 ? (
-            <p style={{ color: "#c00" }}>推定結果が空でした。もう１度撮影してください。</p>
-          ) : (
-            <ul style={{ lineHeight: 1.8 }}>
-              {schedule.map((item, idx) => (
-                <li key={idx}>
-                  {item.date[0]}月{item.date[1]}日 {item.time} → {item.tag}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* スケジュール表 */}
+        {selectedTermId && Object.keys(scheduleByDate).length > 0 && (
+          <Box mt={4}>
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>時限</Th>
+                  {Object.keys(scheduleByDate).map(dateISO => (
+                    <Th key={dateISO} textAlign="center">{dateISO}</Th>
+                  ))}
+                </Tr>
+              </Thead>
+              <Tbody>
+                {timeSlots.map((slotLabel, slotIdx) => (
+                  <Tr key={slotIdx}>
+                    <Td fontWeight="bold">{slotIdx + 1}限<br />{slotLabel}</Td>
+                    {Object.keys(scheduleByDate).map(dateISO => {
+                      const tag = scheduleByDate[dateISO]?.[slotIdx] || "blank";
+                      const style = TAG_STYLE[tag];
+                      return (
+                        <Td
+                          key={dateISO + "-" + slotIdx}
+                          textAlign="center"
+                          cursor="pointer"
+                          bg={style.bg}
+                          color={style.color}
+                          onClick={() => toggleTag(dateISO, slotIdx)}
+                        >
+                          {style.symbol || "〇"}
+                        </Td>
+                      );
+                    })}
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+        )}
 
-        <div style={{ marginTop: 24 }}>
-          <button onClick={handleBackToList}>一覧に戻る</button>
-        </div>
-      </div>
+        <Box mt={6}>
+          <Button onClick={handleBackToList}>一覧に戻る</Button>
+        </Box>
+      </Box>
     );
   }
 
   // 一覧＋新規登録フォーム
   return (
-    <div style={{ padding: 20 }}>
-      <h2>生徒管理</h2>
+    <Box p={4}>
+      <Heading size="md" mb={4}>生徒管理</Heading>
 
       {!showForm ? (
-        <button onClick={() => setShowForm(true)}>新規登録</button>
+        <Button onClick={() => setShowForm(true)}>新規登録</Button>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, marginBottom: 16 }}>
-          <input
+        <VStack align="start" spacing={3} mt={2} mb={4}>
+          <Input
             type="text"
             placeholder="名前を入力"
             value={newName}
             onChange={e => setNewName(e.target.value)}
           />
-          <select value={newGrade} onChange={e => setNewGrade(e.target.value)}>
+          <Select value={newGrade} onChange={e => setNewGrade(e.target.value)}>
             <option value="">学年を選択</option>
             {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleAddStudent}>登録</button>
-            <button onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</button>
-          </div>
-        </div>
+          </Select>
+          <HStack>
+            <Button onClick={handleAddStudent}>登録</Button>
+            <Button onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</Button>
+          </HStack>
+        </VStack>
       )}
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+      <HStack wrap="wrap" spacing={4} mt={4}>
         {students.map(s => (
-          <div
+          <Box
             key={s.id}
-            style={{
-              width: 220,
-              border: "1px solid #ddd",
-              borderRadius: 10,
-              padding: 12,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-              background: "#fff"
-            }}
+            borderWidth="1px"
+            borderRadius="md"
+            p={3}
+            w="220px"
+            bg="white"
+            boxShadow="sm"
           >
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>
-              {s.name}（{s.grade}）
-            </div>
-            <button onClick={() => handleSelectStudent(s)}>詳細を見る</button>
-          </div>
+            <Text fontWeight="bold" mb={2}>{s.name}（{s.grade}）</Text>
+            <Button size="sm" onClick={() => handleSelectStudent(s)}>詳細を見る</Button>
+          </Box>
         ))}
-      </div>
-    </div>
+      </HStack>
+    </Box>
   );
 }
