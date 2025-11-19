@@ -192,20 +192,41 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   // ---- AI推定処理 ----
-  const applyAISchedule = (items: ScheduleItem[]) => {
-    setScheduleByDate(prev => {
-      const updated = { ...prev };
-      items.forEach(item => {
-        const iso = `2025-${String(item.date[0]).padStart(2,"0")}-${String(item.date[1]).padStart(2,"0")}`;
-        const slotIdx = timeSlots.findIndex(slot => slot === item.time);
-        if (slotIdx >= 0) {
+  const applyAISchedule = (items: any[]) => {
+      const term = terms.find(t => t.id === selectedTermId);
+      if (!term) return;
+
+      const start = new Date(term.startDate);
+      const year = start.getFullYear();
+
+      setScheduleByDate(prev => {
+        const updated = { ...prev };
+
+        items.forEach(item => {
+          // 月日からISO日付を生成
+          const m = String(item.date[0]).padStart(2, "0");
+          const d = String(item.date[1]).padStart(2, "0");
+          const iso = `${year}-${m}-${d}`;
+
+          // 時限インデックスを取得
+          const slotIdx = timeSlots.findIndex(slot => slot === item.time);
+          if (slotIdx < 0) return;
+
+          // タグをUI用に正規化
+          let tag: "blank" | "×" | "slash" | "triangle" = "blank";
+          if (item.tag === "x" || item.tag === "×") tag = "×";
+          else if (item.tag === "slash" || item.tag === "/") tag = "slash";
+          else if (item.tag === "triangle" || item.tag === "△") tag = "triangle";
+
           if (!updated[iso]) updated[iso] = {};
-          updated[iso][slotIdx] = item.tag;
-        }
+          updated[iso][slotIdx] = tag;
+        });
+
+        console.log("AI推定反映後 scheduleByDate:", updated);
+        return updated;
       });
-      return updated;
-    });
   };
+
   const captureAndSend = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
 
