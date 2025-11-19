@@ -192,6 +192,11 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
 
   // ---- AI推定処理 ----
+  const normalizeTime = (t: string) => {
+      // ハイフンを波ダッシュに統一
+      return t.replace("-", "〜");
+  };
+
   const applyAISchedule = (items: any[]) => {
       const term = terms.find(t => t.id === selectedTermId);
       if (!term) return;
@@ -208,11 +213,11 @@ export default function Students({ onNavigate }: StudentsProps) {
           const d = String(item.date[1]).padStart(2, "0");
           const iso = `${year}-${m}-${d}`;
 
-          // 時限インデックスを取得
-          const slotIdx = timeSlots.findIndex(slot => slot === item.time);
+          // 時限インデックスを取得（表記ゆれ対応）
+          const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
           if (slotIdx < 0) return;
 
-          // タグをUI用に正規化
+          // タグを正規化
           let tag: "blank" | "×" | "slash" | "triangle" = "blank";
           if (item.tag === "x" || item.tag === "×") tag = "×";
           else if (item.tag === "slash" || item.tag === "/") tag = "slash";
