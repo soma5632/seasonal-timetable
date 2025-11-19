@@ -17,7 +17,7 @@ type ScheduleItem = {
 };
 
 type StudentsProps = {
-  onNavigate: React.Dispatch<React.SetStateAction<"home" | "students" | "teachers" | "timetable">>;
+  onNavigate: React.Dispatch<React.SetStateAction<'home' | 'timetable' | 'students' | 'teachers' | 'term'>>;
 };
 
 const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];

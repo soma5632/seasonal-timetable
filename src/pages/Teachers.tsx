@@ -20,7 +20,7 @@ const TIME_SLOTS = [
 ];
 
 export default function Teachers({ onNavigate }:
-    { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers') => void }) {
+    { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers' | 'term') => void }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [name, setName] = useState("");
   const [subjects, setSubjects] = useState<string[]>([]);

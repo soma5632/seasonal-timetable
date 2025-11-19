@@ -2,18 +2,27 @@ import React, { useState } from 'react';
 import Home from './pages/Home';
 import Students from './pages/Students';
 import Teachers from './pages/Teachers';
-// import Timetable from './pages/Timetable'; // ← これも置き換え
-import TimetableManager from './pages/TimetableManager'; // 新しい時間割管理ページ
+import TimetableManager from './pages/TimetableManager';
+import TermManager from './pages/TermManager';
 
 export default function App() {
-  const [page, setPage] = useState<'home' | 'timetable' | 'students' | 'teachers'>('home');
+  // page に 'term' を追加
+  const [page, setPage] = useState<
+    'home' | 'timetable' | 'students' | 'teachers' | 'term'
+  >('home');
 
   const renderPage = () => {
     switch (page) {
-      case 'students': return <Students onNavigate={setPage} />;
-      case 'teachers': return <Teachers onNavigate={setPage} />;
-      case 'timetable': return <TimetableManager onNavigate={setPage} />;
-      default: return <Home onNavigate={setPage} />;
+      case 'students':
+        return <Students onNavigate={setPage} />;
+      case 'teachers':
+        return <Teachers onNavigate={setPage} />;
+      case 'timetable':
+        return <TimetableManager onNavigate={setPage} />;
+      case 'term':
+        return <TermManager onNavigate={setPage} />; // ★ ターム管理ページ
+      default:
+        return <Home onNavigate={setPage} />;
     }
   };
 
