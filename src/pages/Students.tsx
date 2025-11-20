@@ -65,6 +65,9 @@ export default function Students({ onNavigate }: StudentsProps) {
   // ターム一覧（localStorageから読み込む）
   const [terms, setTerms] = useState<{ id: string; name: string; startDate: string; endDate: string; closedSlots?: { [iso: string]: number[] } }[]>([]);
 
+  // 撮影／アップロード画像プレビュー
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -196,6 +199,19 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
     setCameraOn(false);
   };
+
+  // ---- 生徒削除処理 ----
+  const handleDeleteStudent = (id: number) => {
+    if (!window.confirm("本当に削除しますか？")) return;
+    const updated = students.filter(s => s.id !== id);
+    setStudents(updated);
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = updated;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  };
   // ---- AI推定処理 ----
   const normalizeTime = (t: string) => {
     // ハイフンを波ダッシュに統一
@@ -256,6 +272,9 @@ export default function Students({ onNavigate }: StudentsProps) {
     formData.append("student_id", String(selectedStudent.id));
     formData.append("term_id", selectedTermId);
 
+    // プレビュー用URLを更新
+    setPreviewUrl(URL.createObjectURL(blob));
+
     try {
       const res = await fetch("https://api.souma-lab.com/schedule/upload", {
         method: "POST",
@@ -277,6 +296,9 @@ export default function Students({ onNavigate }: StudentsProps) {
     formData.append("file", file);
     formData.append("student_id", String(selectedStudent.id));
     formData.append("term_id", selectedTermId);
+
+    // プレビュー用URLを更新
+    setPreviewUrl(URL.createObjectURL(file));
 
     try {
       const res = await fetch("https://api.souma-lab.com/schedule/upload", {
@@ -444,10 +466,17 @@ export default function Students({ onNavigate }: StudentsProps) {
             </HStack>
             <video ref={videoRef} autoPlay playsInline style={{ width: 320, background: "#000", marginTop: 8 }} />
             <canvas ref={canvasRef} style={{ display: "none" }} />
+
+            {/* プレビュー画像 */}
+            {previewUrl && (
+              <Box mt={4}>
+                <Heading size="sm" mb={2}>プレビュー</Heading>
+                <img src={previewUrl} alt="preview" style={{ width: 280, border: "1px solid #ccc" }} />
+              </Box>
+            )}
           </Box>
         )}
-
-        {/* スケジュール表 */}
+    　　{/* スケジュール表 */}
         {selectedTermId && Object.keys(scheduleByDate).length > 0 && (
           <Box mt={6}>
             <Table size="sm" variant="simple">
@@ -542,22 +571,31 @@ export default function Students({ onNavigate }: StudentsProps) {
         </VStack>
       )}
 
-      <HStack wrap="wrap" spacing={4} mt={4}>
-        {students.map(s => (
-          <Box
-            key={s.id}
-            borderWidth="1px"
-            borderRadius="md"
-            p={3}
-            w="220px"
-            bg="white"
-            boxShadow="sm"
-          >
-            <Text fontWeight="bold" mb={2}>{s.name}（{s.grade}）</Text>
-            <Button size="sm" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
-          </Box>
-        ))}
-      </HStack>
+      {/* 学年ごとの一覧表示 */}
+      {gradeOptions.map(grade => (
+        <Box key={grade} mt={6}>
+          <Heading size="sm" mb={2}>{grade}</Heading>
+          <HStack wrap="wrap" spacing={4}>
+            {students.filter(s => s.grade === grade).map(s => (
+              <Box
+                key={s.id}
+                borderWidth="1px"
+                borderRadius="md"
+                p={3}
+                w="220px"
+                bg="white"
+                boxShadow="sm"
+              >
+                <Text fontWeight="bold" mb={2}>{s.name}（{s.grade}）</Text>
+                <HStack spacing={2}>
+                  <Button size="sm" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
+                  <Button size="sm" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
+                </HStack>
+              </Box>
+            ))}
+          </HStack>
+        </Box>
+      ))}
     </Box>
   );
 }
