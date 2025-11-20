@@ -176,12 +176,17 @@ export default function TermManager({
   const [teacherOptions, setTeacherOptions] = useState<string[]>([]);
   const [studentOptions, setStudentOptions] = useState<string[]>([]);
 
+  // タームスケジュール入力 state
+  const [termName, setTermName] = useState<TermPreset>("第1ターム");
+  const [startDateTerm, setStartDateTerm] = useState<string>("");
+  const [endDateTerm, setEndDateTerm] = useState<string>("");
+  const [closedSlotsByDate, setClosedSlotsByDate] = useState<{ [iso: string]: number[] }>({});
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // 将来ログイン機能を見据えて user1 固定
         const userData = parsed["user1"];
         if (userData) {
           setTimetable(userData.timetable || {});
@@ -206,17 +211,51 @@ export default function TermManager({
     } catch {}
   }, []);
 
-  // ★ 前回選んだタームを読み込む処理を追加
+  // ★ 初期表示時に前回選んだタームとその内容をロード
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const appData = JSON.parse(raw);
       const userData = appData["user1"];
       if (userData && userData.lastSelectedTermName) {
-        setTermName(userData.lastSelectedTermName as TermPreset);
+        const last = userData.lastSelectedTermName as TermPreset;
+        setTermName(last);
+        const saved = userData.terms?.[last];
+        if (saved) {
+          setStartDateTerm(saved.startDate || "");
+          setEndDateTerm(saved.endDate || "");
+          setClosedSlotsByDate(saved.closedSlots || {});
+        }
       }
     }
   }, []);
+
+  // ★ ターム選択変更時に保存済み内容をロード
+  useEffect(() => {
+    if (!termName) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const appData = JSON.parse(raw);
+      const userData = appData["user1"];
+      if (!userData) return;
+
+      const saved = userData.terms?.[termName];
+      if (saved) {
+        setStartDateTerm(saved.startDate || "");
+        setEndDateTerm(saved.endDate || "");
+        setClosedSlotsByDate(saved.closedSlots || {});
+      } else {
+        setStartDateTerm("");
+        setEndDateTerm("");
+        setClosedSlotsByDate({});
+      }
+    } catch {
+      setStartDateTerm("");
+      setEndDateTerm("");
+      setClosedSlotsByDate({});
+    }
+  }, [termName]);
 
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
@@ -231,12 +270,6 @@ export default function TermManager({
 
   const teachers = teacherOptions.map((name, idx) => ({ id: `T${idx + 1}`, name }));
   const students = studentOptions.map((name, idx) => ({ id: `S${idx + 1}`, name }));
-
-  // タームスケジュール入力 state
-  const [termName, setTermName] = useState<TermPreset>("第1ターム");
-  const [startDateTerm, setStartDateTerm] = useState<string>("");
-  const [endDateTerm, setEndDateTerm] = useState<string>("");
-  const [closedSlotsByDate, setClosedSlotsByDate] = useState<{ [iso: string]: number[] }>({});
 
   const weekBlocks = useMemo(() => {
     if (!startDateTerm || !endDateTerm) return [];
