@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Heading,
@@ -182,6 +182,9 @@ export default function TermManager({
   const [endDateTerm, setEndDateTerm] = useState<string>("");
   const [closedSlotsByDate, setClosedSlotsByDate] = useState<{ [iso: string]: number[] }>({});
 
+  // ★ 保存適用中かどうかを判定するフラグ
+  const applyingSavedRef = useRef(false);
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -219,42 +222,52 @@ export default function TermManager({
       const userData = appData["user1"];
       if (userData && userData.lastSelectedTermName) {
         const last = userData.lastSelectedTermName as TermPreset;
-        setTermName(last);
         const saved = userData.terms?.[last];
+
+        applyingSavedRef.current = true;
+        setTermName(last);
         if (saved) {
           setStartDateTerm(saved.startDate || "");
           setEndDateTerm(saved.endDate || "");
           setClosedSlotsByDate(saved.closedSlots || {});
+        } else {
+          setStartDateTerm("");
+          setEndDateTerm("");
+          setClosedSlotsByDate({});
         }
+        applyingSavedRef.current = false;
       }
     }
   }, []);
 
   // ★ ターム選択変更時に保存済み内容をロード
   useEffect(() => {
-      if (!termName) return;
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const appData = JSON.parse(raw);
-        const userData = appData["user1"];
-        if (!userData) return;
+    if (!termName) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const appData = JSON.parse(raw);
+      const userData = appData["user1"];
+      if (!userData) return;
 
-        const saved = userData.terms?.[termName];
-        if (saved) {
-          setStartDateTerm(saved.startDate || "");
-          setEndDateTerm(saved.endDate || "");
-          setClosedSlotsByDate(saved.closedSlots || {}); // ←ここで反映
-        } else {
-          setStartDateTerm("");
-          setEndDateTerm("");
-          setClosedSlotsByDate({});
-        }
-      } catch {
+      const saved = userData.terms?.[termName];
+
+      applyingSavedRef.current = true;
+      if (saved) {
+        setStartDateTerm(saved.startDate || "");
+        setEndDateTerm(saved.endDate || "");
+        setClosedSlotsByDate(saved.closedSlots || {});
+      } else {
         setStartDateTerm("");
         setEndDateTerm("");
         setClosedSlotsByDate({});
       }
+      applyingSavedRef.current = false;
+    } catch {
+      setStartDateTerm("");
+      setEndDateTerm("");
+      setClosedSlotsByDate({});
+    }
   }, [termName]);
 
   const schedules: Schedule[] = dates.map((date) => {
@@ -287,7 +300,9 @@ export default function TermManager({
     return e >= s;
   }, [startDateTerm, endDateTerm]);
 
+  // ★ 保存適用中はリセットしないようにガード
   useEffect(() => {
+    if (applyingSavedRef.current) return;
     setClosedSlotsByDate({});
   }, [startDateTerm, endDateTerm]);
 
@@ -447,7 +462,7 @@ export default function TermManager({
                   termName,
                   startDate: startDateTerm,
                   endDate: endDateTerm,
-                  closedSlots: closedSlotsByDate,
+                  closedSlots: closedSlotsByDate, // ★ 閉校スロットも保存
                 };
 
                 try {
@@ -499,5 +514,5 @@ export default function TermManager({
           </Box>
         )}
       </Box>
-  );
+  )
 }
