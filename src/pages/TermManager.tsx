@@ -140,16 +140,15 @@ function buildWeekBlocks(startISO: string, endISO: string): WeekBlock[] {
       current = [];
     }
   };
+for (let i = 0; i < days.length; i++) {
+  const d = days[i];
+  if (d.weekdayJa === "月" && current.length > 0) flush();
+  current.push(d);
+  if (d.weekdayJa === "土") flush();
+}
+flush();
 
-  for (let i = 0; i < days.length; i++) {
-    const d = days[i];
-    if (d.weekdayJa === "月" && current.length > 0) flush();
-    current.push(d);
-    if (d.weekdayJa === "土") flush();
-  }
-  flush();
-
-  return blocks;
+return blocks;
 }
 function estimateWeekCount(blocks: WeekBlock[]): number {
   return blocks.length;
@@ -207,15 +206,16 @@ export default function TermManager({
     } catch {}
   }, []);
 
+  // ★ 前回選んだタームを読み込む処理を追加
   useEffect(() => {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const appData = JSON.parse(raw);
-        const userData = appData["user1"];
-        if (userData && userData.lastSelectedTermId) {
-          setSelectedTermId(userData.lastSelectedTermId);
-        }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const appData = JSON.parse(raw);
+      const userData = appData["user1"];
+      if (userData && userData.lastSelectedTermName) {
+        setTermName(userData.lastSelectedTermName as TermPreset);
       }
+    }
   }, []);
 
   const schedules: Schedule[] = dates.map((date) => {
@@ -283,111 +283,129 @@ export default function TermManager({
   };
   // Render
   return (
-    <Box p={4}>
-      <Heading size="lg" mb={2}>ターム管理</Heading>
-      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
-        ホームに戻る
-      </Button>
+      <Box p={4}>
+        <Heading size="lg" mb={2}>ターム管理</Heading>
+        <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
+          ホームに戻る
+        </Button>
 
-      <Divider my={6} />
+        <Divider my={6} />
 
-      {/* タームスケジュール入力 */}
-      <Heading size="md" mb={2}>塾スケジュール入力（ターム）</Heading>
-      <Text fontSize="sm" color="gray.600" mb={4}>
-        タームを選び期間を指定してください。表示は月〜土のみ（日曜は非表示）。3週または4週が想定です。
-      </Text>
+        {/* タームスケジュール入力 */}
+        <Heading size="md" mb={2}>塾スケジュール入力（ターム）</Heading>
+        <Text fontSize="sm" color="gray.600" mb={4}>
+          タームを選び期間を指定してください。表示は月〜土のみ（日曜は非表示）。3週または4週が想定です。
+        </Text>
 
-      <VStack align="start" spacing={3} mb={4}>
-        <HStack spacing={3}>
-          <Text minW="80px">ターム名</Text>
-          <Select value={termName} onChange={(e) => setTermName(e.target.value as TermPreset)} maxW="220px">
-            <option value="第1ターム">第1ターム</option>
-            <option value="第2ターム">第2ターム</option>
-            <option value="第3ターム">第3ターム</option>
-            <option value="第4ターム">第4ターム</option>
-          </Select>
-        </HStack>
-        <HStack spacing={3}>
-          <Text minW="80px">開始日</Text>
-          <Input type="date" value={startDateTerm} onChange={(e) => setStartDateTerm(e.target.value)} maxW="220px" />
-        </HStack>
-        <HStack spacing={3}>
-          <Text minW="80px">終了日</Text>
-          <Input type="date" value={endDateTerm} onChange={(e) => setEndDateTerm(e.target.value)} maxW="220px" />
-        </HStack>
-      </VStack>
+        <VStack align="start" spacing={3} mb={4}>
+          <HStack spacing={3}>
+            <Text minW="80px">ターム名</Text>
+            <Select
+              value={termName}
+              onChange={(e) => setTermName(e.target.value as TermPreset)}
+              maxW="220px"
+            >
+              <option value="第1ターム">第1ターム</option>
+              <option value="第2ターム">第2ターム</option>
+              <option value="第3ターム">第3ターム</option>
+              <option value="第4ターム">第4ターム</option>
+            </Select>
+          </HStack>
+          <HStack spacing={3}>
+            <Text minW="80px">開始日</Text>
+            <Input
+              type="date"
+              value={startDateTerm}
+              onChange={(e) => setStartDateTerm(e.target.value)}
+              maxW="220px"
+            />
+          </HStack>
+          <HStack spacing={3}>
+            <Text minW="80px">終了日</Text>
+            <Input
+              type="date"
+              value={endDateTerm}
+              onChange={(e) => setEndDateTerm(e.target.value)}
+              maxW="220px"
+            />
+          </HStack>
+        </VStack>
 
-      <VStack align="start" spacing={2} mb={4}>
+        <VStack align="start" spacing={2} mb={4}>
+          {dateRangeValid && weekBlocks.length > 0 && (
+            <Badge colorScheme={weekCount === 3 || weekCount === 4 ? "green" : "red"}>
+              週数: {weekBlocks.length}（想定は3週または4週）
+            </Badge>
+          )}
+          {!dateRangeValid && (
+            <Text fontSize="sm" color="red.600">
+              開始日と終了日を正しく入力してください。
+            </Text>
+          )}
+        </VStack>
+
+        {/* 週ごとの縦積みグリッド */}
         {dateRangeValid && weekBlocks.length > 0 && (
-          <Badge colorScheme={weekCount === 3 || weekCount === 4 ? "green" : "red"}>
-            週数: {weekBlocks.length}（想定は3週または4週）
-          </Badge>
-        )}
-        {!dateRangeValid && (
-          <Text fontSize="sm" color="red.600">開始日と終了日を正しく入力してください。</Text>
-        )}
-      </VStack>
-
-      {/* 週ごとの縦積みグリッド */}
-      {dateRangeValid && weekBlocks.length > 0 && (
-        <VStack align="stretch" spacing={8} mt={4}>
-          {weekBlocks.map((block, blockIdx) => (
-            <Box key={blockIdx} borderWidth="1px" borderRadius="md" overflowX="auto">
-              <Table size="sm" variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>時限</Th>
-                    {block.dates.map((d) => {
-                      const allClosed =
-                        (closedSlotsByDate[d.iso] || []).length === timeSlots.length;
-                      const style = allClosed ? CELL_STYLE.closed : CELL_STYLE.open;
-                      return (
-                        <Th
-                          key={d.iso}
-                          textAlign="center"
-                          cursor="pointer"
-                          bg={style.bg}
-                          color={style.color}
-                          onClick={() => toggleDay(d.iso)}
-                        >
-                          {d.label}({d.weekdayJa})<br />
-                          {style.symbol}
-                        </Th>
-                      );
-                    })}
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {timeSlots.map((slotLabel, slotIdx) => (
-                    <Tr key={slotIdx}>
-                      <Td fontWeight="bold">{slotIdx + 1}限<br />{slotLabel}</Td>
+          <VStack align="stretch" spacing={8} mt={4}>
+            {weekBlocks.map((block, blockIdx) => (
+              <Box key={blockIdx} borderWidth="1px" borderRadius="md" overflowX="auto">
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>時限</Th>
                       {block.dates.map((d) => {
-                        const closed = (closedSlotsByDate[d.iso] || []).includes(slotIdx);
-                        const style = closed ? CELL_STYLE.closed : CELL_STYLE.open;
+                        const allClosed =
+                          (closedSlotsByDate[d.iso] || []).length === timeSlots.length;
+                        const style = allClosed ? CELL_STYLE.closed : CELL_STYLE.open;
                         return (
-                          <Td
-                            key={d.iso + "-" + slotIdx}
+                          <Th
+                            key={d.iso}
                             textAlign="center"
                             cursor="pointer"
                             bg={style.bg}
                             color={style.color}
-                            onClick={() => toggleSlot(d.iso, slotIdx)}
+                            onClick={() => toggleDay(d.iso)}
                           >
+                            {d.label}({d.weekdayJa})<br />
                             {style.symbol}
-                          </Td>
+                          </Th>
                         );
                       })}
                     </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
-          ))}
-        </VStack>
-      )}
+                  </Thead>
+                  <Tbody>
+                    {timeSlots.map((slotLabel, slotIdx) => (
+                      <Tr key={slotIdx}>
+                        <Td fontWeight="bold">
+                          {slotIdx + 1}限<br />{slotLabel}
+                        </Td>
+                        {block.dates.map((d) => {
+                          const closed = (closedSlotsByDate[d.iso] || []).includes(slotIdx);
+                          const style = closed ? CELL_STYLE.closed : CELL_STYLE.open;
+                          return (
+                            <Td
+                              key={d.iso + "-" + slotIdx}
+                              textAlign="center"
+                              cursor="pointer"
+                              bg={style.bg}
+                              color={style.color}
+                              onClick={() => toggleSlot(d.iso, slotIdx)}
+                            >
+                              {style.symbol}
+                            </Td>
+                          );
+                        })}
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            ))}
+          </VStack>
+        )}
 
-      {/* まとめて保存ボタン */}
-      {dateRangeValid && weekBlocks.length > 0 && (
+        {/* まとめて保存ボタン */}
+        {dateRangeValid && weekBlocks.length > 0 && (
           <Box mt={6}>
             <Button
               colorScheme="blue"
@@ -413,7 +431,7 @@ export default function TermManager({
                         "第3ターム": null,
                         "第4ターム": null,
                       },
-                      lastSelectedTermId: null,
+                      lastSelectedTermName: null,
                     };
                   }
 
@@ -421,7 +439,7 @@ export default function TermManager({
                   appData[userId].terms[termName] = payload;
 
                   // ユーザーごとに最後に選んだタームを記憶
-                  appData[userId].lastSelectedTermId = termName;
+                  appData[userId].lastSelectedTermName = termName;
 
                   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
 
@@ -446,7 +464,7 @@ export default function TermManager({
               まとめて保存
             </Button>
           </Box>
-      )}
-    </Box>
+        )}
+      </Box>
   );
 }
