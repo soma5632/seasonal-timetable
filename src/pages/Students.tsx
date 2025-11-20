@@ -314,7 +314,7 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
   };
 
-  // ---- ターム選択時に週ごとブロック生成（月〜土のみ） ----
+  // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
 
@@ -342,7 +342,7 @@ export default function Students({ onNavigate }: StudentsProps) {
       // ★ 閉校情報を反映
       const closed = term.closedSlots?.[iso] || [];
       closed.forEach(slotIdx => {
-        empty[iso][slotIdx] = "×";
+        empty[iso][slotIdx] = "closed"; // 特別タグ closed
       });
 
       currentWeek.push({
@@ -368,6 +368,7 @@ export default function Students({ onNavigate }: StudentsProps) {
   const toggleTag = (dateISO: string, slotIdx: number) => {
     setScheduleByDate(prev => {
       const current = prev[dateISO]?.[slotIdx] || "blank";
+      if (current === "closed") return prev; // ★ 閉校セルは編集不可
       const order = ["blank", "×", "triangle"];
       const next = order[(order.indexOf(current) + 1) % order.length];
       return {
@@ -500,7 +501,7 @@ export default function Students({ onNavigate }: StudentsProps) {
           </Box>
         )}
 
-        {/* 週ごとの縦積みグリッド（月〜土のみ） */}
+        {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可） */}
         {dateRangeValid && weekBlocks.length > 0 && (
           <VStack align="stretch" spacing={4} mt={4}>
             {weekBlocks.map((block, blockIdx) => (
@@ -524,6 +525,21 @@ export default function Students({ onNavigate }: StudentsProps) {
                         </Td>
                         {block.dates.map(d => {
                           const tag = scheduleByDate[d.iso]?.[slotIdx] || "blank";
+                          if (tag === "closed") {
+                            return (
+                              <Td
+                                key={d.iso + "-" + slotIdx}
+                                fontSize="xs"
+                                p={1}
+                                textAlign="center"
+                                bg="gray.300"
+                                color="gray.600"
+                                cursor="not-allowed"
+                              >
+                                休
+                              </Td>
+                            );
+                          }
                           const style = TAG_STYLE[tag];
                           return (
                             <Td
@@ -552,7 +568,10 @@ export default function Students({ onNavigate }: StudentsProps) {
         <Button mt={4} colorScheme="blue" size="sm" onClick={saveSchedule}>このタームのスケジュールを保存</Button>
 
         <Box mt={6}>
-          <Button size="sm" onClick={() => { setSelectedStudent(null); onNavigate("home"); }}>一覧に戻る</Button>
+          {/* ★ 一覧に戻るボタンを生徒一覧画面へ */}
+          <Button size="sm" onClick={() => { setSelectedStudent(null); onNavigate("students"); }}>
+            一覧に戻る
+          </Button>
         </Box>
       </Box>
     );
