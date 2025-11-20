@@ -207,6 +207,17 @@ export default function TermManager({
     } catch {}
   }, []);
 
+  useEffect(() => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const appData = JSON.parse(raw);
+        const userData = appData["user1"];
+        if (userData && userData.lastSelectedTermId) {
+          setSelectedTermId(userData.lastSelectedTermId);
+        }
+      }
+  }, []);
+
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
     for (let slot = 0; slot < timeSlots.length; slot++) {
@@ -377,59 +388,64 @@ export default function TermManager({
 
       {/* まとめて保存ボタン */}
       {dateRangeValid && weekBlocks.length > 0 && (
-        <Box mt={6}>
-          <Button
-            colorScheme="blue"
-            onClick={() => {
-              const payload = {
-                termName,
-                startDate: startDateTerm,
-                endDate: endDateTerm,
-                closedSlots: closedSlotsByDate,
-              };
+          <Box mt={6}>
+            <Button
+              colorScheme="blue"
+              onClick={() => {
+                const payload = {
+                  termName,
+                  startDate: startDateTerm,
+                  endDate: endDateTerm,
+                  closedSlots: closedSlotsByDate,
+                };
 
-              try {
-                const userId = "user1"; // 仮のユーザーID（将来ログイン機能で置き換え）
+                try {
+                  const userId = "user1"; // 仮のユーザーID（将来ログイン機能で置き換え）
 
-                const raw = localStorage.getItem(STORAGE_KEY);
-                const appData = raw ? JSON.parse(raw) : {};
+                  const raw = localStorage.getItem(STORAGE_KEY);
+                  const appData = raw ? JSON.parse(raw) : {};
 
-                if (!appData[userId]) {
-                  appData[userId] = {
-                    terms: {
-                      "第1ターム": null,
-                      "第2ターム": null,
-                      "第3ターム": null,
-                      "第4ターム": null,
-                    },
-                  };
+                  if (!appData[userId]) {
+                    appData[userId] = {
+                      terms: {
+                        "第1ターム": null,
+                        "第2ターム": null,
+                        "第3ターム": null,
+                        "第4ターム": null,
+                      },
+                      lastSelectedTermId: null,
+                    };
+                  }
+
+                  // ターム情報を保存
+                  appData[userId].terms[termName] = payload;
+
+                  // ユーザーごとに最後に選んだタームを記憶
+                  appData[userId].lastSelectedTermId = termName;
+
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
+                  toast({
+                    title: "保存しました",
+                    description: `${termName} のスケジュールを保存しました。`,
+                    status: "success",
+                    duration: 3000,
+                    isClosable: true,
+                  });
+                } catch (e) {
+                  toast({
+                    title: "保存失敗",
+                    description: "保存時にエラーが発生しました。",
+                    status: "error",
+                    duration: 3000,
+                    isClosable: true,
+                  });
                 }
-
-                appData[userId].terms[termName] = payload;
-
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-
-                toast({
-                  title: "保存しました",
-                  description: `${termName} のスケジュールを保存しました。`,
-                  status: "success",
-                  duration: 3000,
-                  isClosable: true,
-                });
-              } catch (e) {
-                toast({
-                  title: "保存失敗",
-                  description: "保存時にエラーが発生しました。",
-                  status: "error",
-                  duration: 3000,
-                  isClosable: true,
-                });
-              }
-            }}
-          >
-            まとめて保存
-          </Button>
-        </Box>
+              }}
+            >
+              まとめて保存
+            </Button>
+          </Box>
       )}
     </Box>
   );
