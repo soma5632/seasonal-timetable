@@ -232,29 +232,29 @@ export default function TermManager({
 
   // ★ ターム選択変更時に保存済み内容をロード
   useEffect(() => {
-    if (!termName) return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const appData = JSON.parse(raw);
-      const userData = appData["user1"];
-      if (!userData) return;
+      if (!termName) return;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const appData = JSON.parse(raw);
+        const userData = appData["user1"];
+        if (!userData) return;
 
-      const saved = userData.terms?.[termName];
-      if (saved) {
-        setStartDateTerm(saved.startDate || "");
-        setEndDateTerm(saved.endDate || "");
-        setClosedSlotsByDate(saved.closedSlots || {});
-      } else {
+        const saved = userData.terms?.[termName];
+        if (saved) {
+          setStartDateTerm(saved.startDate || "");
+          setEndDateTerm(saved.endDate || "");
+          setClosedSlotsByDate(saved.closedSlots || {}); // ←ここで反映
+        } else {
+          setStartDateTerm("");
+          setEndDateTerm("");
+          setClosedSlotsByDate({});
+        }
+      } catch {
         setStartDateTerm("");
         setEndDateTerm("");
         setClosedSlotsByDate({});
       }
-    } catch {
-      setStartDateTerm("");
-      setEndDateTerm("");
-      setClosedSlotsByDate({});
-    }
   }, [termName]);
 
   const schedules: Schedule[] = dates.map((date) => {
