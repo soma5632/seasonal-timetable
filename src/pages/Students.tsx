@@ -33,11 +33,11 @@ const timeSlots = [
   "19:20〜20:50","20:30〜22:00",
 ];
 
+// アイコン化用スタイル（slashは×に統一）
 const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> = {
   "×": { symbol: "×", color: "red.600", bg: "gray.100" },
-  "slash": { symbol: "／", color: "blue.600", bg: "gray.100" },
   "triangle": { symbol: "△", color: "orange.600", bg: "gray.100" },
-  "blank": { symbol: "", color: "gray.400", bg: "white" },
+  "blank": { symbol: "〇", color: "gray.400", bg: "white" },
 };
 
 const STORAGE_KEY = "app-data";
@@ -67,6 +67,10 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // 撮影／アップロード画像プレビュー
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // 週ごとのブロック
+  const [weekBlocks, setWeekBlocks] = useState<{ dates: { iso: string; label: string; weekdayJa: string }[] }[]>([]);
+  const [dateRangeValid, setDateRangeValid] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -214,7 +218,6 @@ export default function Students({ onNavigate }: StudentsProps) {
   };
   // ---- AI推定処理 ----
   const normalizeTime = (t: string) => {
-    // ハイフンを波ダッシュに統一
     return t.replace("-", "〜");
   };
 
@@ -236,9 +239,9 @@ export default function Students({ onNavigate }: StudentsProps) {
         const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
         if (slotIdx < 0) return;
 
-        let tag: "blank" | "×" | "slash" | "triangle" = "blank";
-        if (item.tag === "x" || item.tag === "×") tag = "×";
-        else if (item.tag === "slash" || item.tag === "/") tag = "slash";
+        // slash を × に統一
+        let tag: "blank" | "×" | "triangle" = "blank";
+        if (item.tag === "x" || item.tag === "×" || item.tag === "slash" || item.tag === "/") tag = "×";
         else if (item.tag === "triangle" || item.tag === "△") tag = "triangle";
 
         if (!updated[iso]) updated[iso] = {};
@@ -272,7 +275,6 @@ export default function Students({ onNavigate }: StudentsProps) {
     formData.append("student_id", String(selectedStudent.id));
     formData.append("term_id", selectedTermId);
 
-    // プレビュー用URLを更新
     setPreviewUrl(URL.createObjectURL(blob));
 
     try {
@@ -297,7 +299,6 @@ export default function Students({ onNavigate }: StudentsProps) {
     formData.append("student_id", String(selectedStudent.id));
     formData.append("term_id", selectedTermId);
 
-    // プレビュー用URLを更新
     setPreviewUrl(URL.createObjectURL(file));
 
     try {
@@ -313,17 +314,22 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
   };
 
-  // ---- ターム選択時に表を生成＆既存データ＋閉校情報を反映 ----
+  // ---- ターム選択時に週ごとブロック生成 ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
 
     const term = terms.find(t => t.id === selectedTermId);
     if (!term) return;
 
-    const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
     const start = new Date(term.startDate);
     const end = new Date(term.endDate);
 
+    const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
+    const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
+
+    const weekdayJa = ["日","月","火","水","木","金","土"];
+
+    let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
     for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
       const iso = dt.toISOString().split("T")[0];
       empty[iso] = {};
@@ -331,23 +337,35 @@ export default function Students({ onNavigate }: StudentsProps) {
         empty[iso][idx] = "blank";
       });
 
-      // ★ 閉校情報を反映
       const closed = term.closedSlots?.[iso] || [];
       closed.forEach(slotIdx => {
         empty[iso][slotIdx] = "×";
       });
-    }
 
-    // 既存スケジュールがあればそれを優先
+      currentWeek.push({
+        iso,
+        label: `${dt.getMonth() + 1}/${dt.getDate()}`,
+        weekdayJa: weekdayJa[dt.getDay()],
+      });
+
+      if (dt.getDay() === 0) { // 日曜で週区切り
+        weeks.push({ dates: currentWeek });
+        currentWeek = [];
+      }
+    }
+    if (currentWeek.length > 0) weeks.push({ dates: currentWeek });
+
     const existing = selectedStudent.schedules[selectedTermId];
     setScheduleByDate(existing || empty);
+    setWeekBlocks(weeks);
+    setDateRangeValid(true);
   }, [selectedTermId, selectedStudent]);
 
   // ---- セル編集ロジック ----
   const toggleTag = (dateISO: string, slotIdx: number) => {
     setScheduleByDate(prev => {
       const current = prev[dateISO]?.[slotIdx] || "blank";
-      const order = ["blank", "×", "slash", "triangle"];
+      const order = ["blank", "×", "triangle"];
       const next = order[(order.indexOf(current) + 1) % order.length];
       return {
         ...prev,
@@ -374,7 +392,6 @@ export default function Students({ onNavigate }: StudentsProps) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
 
-  // コンポーネントがアンマウントされたらカメラ停止
   useEffect(() => {
     return () => stopCamera();
   }, []);
@@ -391,12 +408,12 @@ export default function Students({ onNavigate }: StudentsProps) {
         <VStack align="start" spacing={2} mt={2}>
           {selectedStudent.subjects.map((sub, idx) => (
             <HStack key={idx}>
-              <Text>{sub.name} ({sub.count}回)</Text>
+              <Text fontSize="sm">{sub.name} ({sub.count}回)</Text>
               <Button size="xs" onClick={() => removeSubject(idx)}>削除</Button>
             </HStack>
           ))}
           <HStack>
-            <Select value={newSubject} onChange={e => setNewSubject(e.target.value)} maxW="140px">
+            <Select value={newSubject} onChange={e => setNewSubject(e.target.value)} maxW="140px" size="sm">
               <option value="">科目を選択</option>
               {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </Select>
@@ -406,6 +423,7 @@ export default function Students({ onNavigate }: StudentsProps) {
               value={newCount}
               onChange={e => setNewCount(e.target.value === "" ? "" : Number(e.target.value))}
               maxW="80px"
+              size="sm"
             />
             <Button size="sm" onClick={addSubject}>追加</Button>
           </HStack>
@@ -416,7 +434,7 @@ export default function Students({ onNavigate }: StudentsProps) {
         <VStack align="start" spacing={2} mt={2}>
           {selectedStudent.ngTeachers.map((t, idx) => (
             <HStack key={idx}>
-              <Text>{t}</Text>
+              <Text fontSize="sm">{t}</Text>
               <Button size="xs" onClick={() => removeNgTeacher(idx)}>削除</Button>
             </HStack>
           ))}
@@ -427,6 +445,7 @@ export default function Students({ onNavigate }: StudentsProps) {
               value={newNgTeacher}
               onChange={e => setNewNgTeacher(e.target.value)}
               maxW="160px"
+              size="sm"
             />
             <Button size="sm" onClick={addNgTeacher}>追加</Button>
           </HStack>
@@ -440,6 +459,7 @@ export default function Students({ onNavigate }: StudentsProps) {
           onChange={e => setSelectedTermId(e.target.value)}
           maxW="240px"
           mt={2}
+          size="sm"
         >
           {terms.map(term => (
             <option key={term.id} value={term.id}>
@@ -454,82 +474,93 @@ export default function Students({ onNavigate }: StudentsProps) {
             <Heading size="sm" mb={2}>AIでスケジュール推定</Heading>
             <HStack spacing={3}>
               {!cameraOn ? (
-                <Button onClick={startCamera}>カメラ起動</Button>
+                <Button size="sm" onClick={startCamera}>カメラ起動</Button>
               ) : (
-                <Button onClick={stopCamera}>カメラ停止</Button>
+                <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
               )}
-              <Button onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
+              <Button size="sm" onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
               <label>
-                <span style={{ padding: "6px 12px", border: "1px solid #ccc" }}>写真から選択</span>
+                <span style={{ padding: "4px 8px", border: "1px solid #ccc", fontSize: "smaller" }}>写真から選択</span>
                 <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
             </HStack>
-            <video ref={videoRef} autoPlay playsInline style={{ width: 320, background: "#000", marginTop: 8 }} />
+            <video ref={videoRef} autoPlay playsInline style={{ width: 240, background: "#000", marginTop: 8 }} />
             <canvas ref={canvasRef} style={{ display: "none" }} />
 
             {/* プレビュー画像 */}
             {previewUrl && (
               <Box mt={4}>
                 <Heading size="sm" mb={2}>プレビュー</Heading>
-                <img src={previewUrl} alt="preview" style={{ width: 280, border: "1px solid #ccc" }} />
+                <img src={previewUrl} alt="preview" style={{ width: 200, border: "1px solid #ccc" }} />
               </Box>
             )}
           </Box>
         )}
-    　　{/* スケジュール表 */}
-        {selectedTermId && Object.keys(scheduleByDate).length > 0 && (
-          <Box mt={6}>
-            <Table size="sm" variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>時限</Th>
-                  {Object.keys(scheduleByDate).map(dateISO => (
-                    <Th key={dateISO} textAlign="center">{dateISO}</Th>
-                  ))}
-                </Tr>
-              </Thead>
-              <Tbody>
-                {timeSlots.map((slotLabel, slotIdx) => (
-                  <Tr key={slotIdx}>
-                    <Td fontWeight="bold">{slotIdx + 1}限<br />{slotLabel}</Td>
-                    {Object.keys(scheduleByDate).map(dateISO => {
-                      const tag = scheduleByDate[dateISO]?.[slotIdx] || "blank";
-                      const style = TAG_STYLE[tag];
-                      return (
-                        <Td
-                          key={dateISO + "-" + slotIdx}
-                          textAlign="center"
-                          cursor="pointer"
-                          bg={style.bg}
-                          color={style.color}
-                          onClick={() => toggleTag(dateISO, slotIdx)}
-                        >
-                          {style.symbol || "〇"}
+
+        {/* 週ごとの縦積みグリッド */}
+        {dateRangeValid && weekBlocks.length > 0 && (
+          <VStack align="stretch" spacing={4} mt={4}>
+            {weekBlocks.map((block, blockIdx) => (
+              <Box key={blockIdx} borderWidth="1px" borderRadius="md" overflowX="auto">
+                <Table size="xs" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th fontSize="xs" p={1}>時限</Th>
+                      {block.dates.map(d => (
+                        <Th key={d.iso} fontSize="xs" p={1} textAlign="center">
+                          {d.label}({d.weekdayJa})
+                        </Th>
+                      ))}
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {timeSlots.map((slotLabel, slotIdx) => (
+                      <Tr key={slotIdx}>
+                        <Td fontSize="xs" p={1} fontWeight="bold">
+                          {slotIdx + 1}限
                         </Td>
-                      );
-                    })}
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-            <Button mt={4} colorScheme="blue" onClick={saveSchedule}>このタームのスケジュールを保存</Button>
-          </Box>
+                        {block.dates.map(d => {
+                          const tag = scheduleByDate[d.iso]?.[slotIdx] || "blank";
+                          const style = TAG_STYLE[tag];
+                          return (
+                            <Td
+                              key={d.iso + "-" + slotIdx}
+                              fontSize="xs"
+                              p={1}
+                              textAlign="center"
+                              cursor="pointer"
+                              bg={style.bg}
+                              color={style.color}
+                              onClick={() => toggleTag(d.iso, slotIdx)}
+                            >
+                              {style.symbol}
+                            </Td>
+                          );
+                        })}
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            ))}
+          </VStack>
         )}
 
+        <Button mt={4} colorScheme="blue" size="sm" onClick={saveSchedule}>このタームのスケジュールを保存</Button>
+
         <Box mt={6}>
-          <Button onClick={() => { setSelectedStudent(null); onNavigate("home"); }}>一覧に戻る</Button>
+          <Button size="sm" onClick={() => { setSelectedStudent(null); onNavigate("home"); }}>一覧に戻る</Button>
         </Box>
       </Box>
     );
   }
-
   // 一覧＋新規登録フォーム
   return (
     <Box p={4}>
       <Heading size="md" mb={4}>生徒管理</Heading>
 
       {!showForm ? (
-        <Button onClick={() => setShowForm(true)}>新規登録</Button>
+        <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
       ) : (
         <VStack align="start" spacing={3} mt={2} mb={4}>
           <Input
@@ -537,13 +568,14 @@ export default function Students({ onNavigate }: StudentsProps) {
             placeholder="名前を入力"
             value={newName}
             onChange={e => setNewName(e.target.value)}
+            size="sm"
           />
-          <Select value={newGrade} onChange={e => setNewGrade(e.target.value)}>
+          <Select value={newGrade} onChange={e => setNewGrade(e.target.value)} size="sm">
             <option value="">学年を選択</option>
             {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </Select>
           <HStack>
-            <Button onClick={() => {
+            <Button size="sm" onClick={() => {
               if (!newName.trim() || !newGrade) return;
               const newStudent: Student = {
                 id: Date.now(),
@@ -566,7 +598,7 @@ export default function Students({ onNavigate }: StudentsProps) {
               setNewGrade("");
               setShowForm(false);
             }}>登録</Button>
-            <Button onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</Button>
+            <Button size="sm" onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</Button>
           </HStack>
         </VStack>
       )}
@@ -581,15 +613,15 @@ export default function Students({ onNavigate }: StudentsProps) {
                 key={s.id}
                 borderWidth="1px"
                 borderRadius="md"
-                p={3}
-                w="220px"
+                p={2}
+                w="200px"
                 bg="white"
                 boxShadow="sm"
               >
-                <Text fontWeight="bold" mb={2}>{s.name}（{s.grade}）</Text>
+                <Text fontWeight="bold" mb={2} fontSize="sm">{s.name}（{s.grade}）</Text>
                 <HStack spacing={2}>
-                  <Button size="sm" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
-                  <Button size="sm" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
+                  <Button size="xs" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
+                  <Button size="xs" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
                 </HStack>
               </Box>
             ))}
