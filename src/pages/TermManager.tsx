@@ -300,12 +300,6 @@ export default function TermManager({
     return e >= s;
   }, [startDateTerm, endDateTerm]);
 
-  // ★ 保存適用中はリセットしないようにガード
-  useEffect(() => {
-    if (applyingSavedRef.current) return;
-    setClosedSlotsByDate({});
-  }, [startDateTerm, endDateTerm]);
-
   // セル操作ロジック（〇/×切替）
   const toggleSlot = (dateISO: string, slotIndex: number) => {
     setClosedSlotsByDate((prev) => {
