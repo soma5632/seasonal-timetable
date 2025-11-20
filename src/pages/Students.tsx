@@ -63,7 +63,7 @@ export default function Students({ onNavigate }: StudentsProps) {
   const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: string } }>({});
 
   // ターム一覧（localStorageから読み込む）
-  const [terms, setTerms] = useState<{ id: string; name: string; startDate: string; endDate: string }[]>([]);
+  const [terms, setTerms] = useState<{ id: string; name: string; startDate: string; endDate: string; closedSlots?: { [iso: string]: number[] } }[]>([]);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -74,7 +74,13 @@ export default function Students({ onNavigate }: StudentsProps) {
         if (userData && userData.terms) {
           const termList = Object.entries(userData.terms)
             .filter(([_, v]) => v !== null)
-            .map(([id, v]: any) => ({ id, name: v.termName, startDate: v.startDate, endDate: v.endDate }));
+            .map(([id, v]: any) => ({
+              id,
+              name: v.termName,
+              startDate: v.startDate,
+              endDate: v.endDate,
+              closedSlots: v.closedSlots || {}, // ★ 閉校情報も読み込む
+            }));
           setTerms(termList);
         }
         if (userData && userData.students) {
@@ -190,106 +196,44 @@ export default function Students({ onNavigate }: StudentsProps) {
     }
     setCameraOn(false);
   };
-
   // ---- AI推定処理 ----
   const normalizeTime = (t: string) => {
-      // ハイフンを波ダッシュに統一
-      return t.replace("-", "〜");
+    // ハイフンを波ダッシュに統一
+    return t.replace("-", "〜");
   };
 
   const applyAISchedule = (items: any[]) => {
-      const term = terms.find(t => t.id === selectedTermId);
-      if (!term) return;
+    const term = terms.find(t => t.id === selectedTermId);
+    if (!term) return;
 
-      const start = new Date(term.startDate);
-      const year = start.getFullYear();
+    const start = new Date(term.startDate);
+    const year = start.getFullYear();
 
-      setScheduleByDate(prev => {
-        const updated = { ...prev };
+    setScheduleByDate(prev => {
+      const updated = { ...prev };
 
-        items.forEach(item => {
-          // 月日からISO日付を生成
-          const m = String(item.date[0]).padStart(2, "0");
-          const d = String(item.date[1]).padStart(2, "0");
-          const iso = `${year}-${m}-${d}`;
+      items.forEach(item => {
+        const m = String(item.date[0]).padStart(2, "0");
+        const d = String(item.date[1]).padStart(2, "0");
+        const iso = `${year}-${m}-${d}`;
 
-          // 時限インデックスを取得（表記ゆれ対応）
-          const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
-          if (slotIdx < 0) return;
+        const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
+        if (slotIdx < 0) return;
 
-          // タグを正規化
-          let tag: "blank" | "×" | "slash" | "triangle" = "blank";
-          if (item.tag === "x" || item.tag === "×") tag = "×";
-          else if (item.tag === "slash" || item.tag === "/") tag = "slash";
-          else if (item.tag === "triangle" || item.tag === "△") tag = "triangle";
+        let tag: "blank" | "×" | "slash" | "triangle" = "blank";
+        if (item.tag === "x" || item.tag === "×") tag = "×";
+        else if (item.tag === "slash" || item.tag === "/") tag = "slash";
+        else if (item.tag === "triangle" || item.tag === "△") tag = "triangle";
 
-          if (!updated[iso]) updated[iso] = {};
-          updated[iso][slotIdx] = tag;
-        });
-
-        console.log("AI推定反映後 scheduleByDate:", updated);
-        return updated;
+        if (!updated[iso]) updated[iso] = {};
+        updated[iso][slotIdx] = tag;
       });
+
+      return updated;
+    });
   };
 
-  const captureAndSend = async () => {
-    if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise<Blob | null>(resolve =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92)
-    );
-    if (!blob) return;
-
-    const formData = new FormData();
-    formData.append("file", blob, "capture.jpg");
-    formData.append("student_id", String(selectedStudent.id));
-    formData.append("term_id", selectedTermId);
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = await res.json();
-      applyAISchedule(data);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !selectedStudent || !selectedTermId) return;
-    const file = e.target.files[0];
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("student_id", String(selectedStudent.id));
-    formData.append("term_id", selectedTermId);
-
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = await res.json();
-      applyAISchedule(data);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
-  };
-
-  // ---- ターム選択時に表を生成＆既存データを読み込み ----
+  // ---- ターム選択時に表を生成＆既存データ＋閉校情報を反映 ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
 
@@ -305,6 +249,12 @@ export default function Students({ onNavigate }: StudentsProps) {
       empty[iso] = {};
       timeSlots.forEach((_, idx) => {
         empty[iso][idx] = "blank";
+      });
+
+      // ★ 閉校情報を反映
+      const closed = term.closedSlots?.[iso] || [];
+      closed.forEach(slotIdx => {
+        empty[iso][slotIdx] = "×";
       });
     }
 
@@ -343,11 +293,11 @@ export default function Students({ onNavigate }: StudentsProps) {
     appData["user1"].students = newStudents;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
+
   // コンポーネントがアンマウントされたらカメラ停止
   useEffect(() => {
     return () => stopCamera();
   }, []);
-
   // ---- Render ----
   if (selectedStudent) {
     return (
