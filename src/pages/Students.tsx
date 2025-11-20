@@ -233,6 +233,64 @@ export default function Students({ onNavigate }: StudentsProps) {
     });
   };
 
+  // ---- 画像送信処理 ----
+  const captureAndSend = async () => {
+    if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92)
+    );
+    if (!blob) return;
+
+    const formData = new FormData();
+    formData.append("file", blob, "capture.jpg");
+    formData.append("student_id", String(selectedStudent.id));
+    formData.append("term_id", selectedTermId);
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ScheduleItem[] = await res.json();
+      applyAISchedule(data);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !selectedStudent || !selectedTermId) return;
+    const file = e.target.files[0];
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("student_id", String(selectedStudent.id));
+    formData.append("term_id", selectedTermId);
+
+    try {
+      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ScheduleItem[] = await res.json();
+      applyAISchedule(data);
+    } catch (err) {
+      console.error("Upload/Inference failed:", err);
+    }
+  };
+
   // ---- ターム選択時に表を生成＆既存データ＋閉校情報を反映 ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
