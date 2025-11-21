@@ -533,15 +533,16 @@ export default function Students({ onNavigate }: StudentsProps) {
                 <Table size="xs" variant="simple">
                   <Thead>
                     <Tr>
-                      <Th fontSize="xs" p={1}>時限</Th>
+                      <Th fontSize="xx-small" p={0.5} minW="40px">時限</Th>
                       {block.dates.map(d => (
                         <Th
                           key={d.iso}
-                          fontSize="xs"
-                          p={1}
+                          fontSize="xx-small"
+                          p={0.5}
+                          minW="40px"
                           textAlign="center"
                           cursor="pointer"
-                          onClick={() => toggleDay(d.iso)} // ★ 日付クリックで一括切替
+                          onClick={() => toggleDay(d.iso)}
                         >
                           {d.label}({d.weekdayJa})
                         </Th>
@@ -551,7 +552,7 @@ export default function Students({ onNavigate }: StudentsProps) {
                   <Tbody>
                     {timeSlots.map((slotLabel, slotIdx) => (
                       <Tr key={slotIdx}>
-                        <Td fontSize="xs" p={1} fontWeight="bold">
+                        <Td fontSize="xx-small" p={0.5} fontWeight="bold" minW="40px">
                           {slotIdx + 1}限
                         </Td>
                         {block.dates.map(d => {
@@ -560,12 +561,12 @@ export default function Students({ onNavigate }: StudentsProps) {
                             return (
                               <Td
                                 key={d.iso + "-" + slotIdx}
-                                fontSize="xs"
-                                p={1}
+                                fontSize="xx-small"
+                                p={0.5}
+                                minW="40px"
                                 textAlign="center"
                                 bg="gray.300"
                                 color="gray.600"
-                                cursor="not-allowed"
                               >
                                 休
                               </Td>
@@ -575,8 +576,9 @@ export default function Students({ onNavigate }: StudentsProps) {
                           return (
                             <Td
                               key={d.iso + "-" + slotIdx}
-                              fontSize="xs"
-                              p={1}
+                              fontSize="xx-small"
+                              p={0.5}
+                              minW="40px"
                               textAlign="center"
                               cursor="pointer"
                               bg={style.bg}
