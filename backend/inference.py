@@ -265,7 +265,7 @@ def preprocess(cell):
 def normalize_digits(text: str) -> str:
     z2h = str.maketrans("０１２３４５６７８９", "0123456789")
     t = text.translate(z2h)
-    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "7": "1",
+    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1",
                     "{": "1", "｛": "1", "I": "1", "了": "7", "g": "8"}
     for k, v in replacements.items():
         t = t.replace(k, v)
@@ -274,7 +274,7 @@ def normalize_digits(text: str) -> str:
 # --- 日付抽出 ---
 def parse_month_day(text: str):
     t = normalize_digits(text)
-    m = re.search(r'(\d+)\s*[一-龥]\s*(\d+)\s*[一-龥]', t)
+    m = re.search(r'(\d+)\s*[一-龥]+\s*(\d+)\s*[一-龥]+', t)
     return (int(m.group(1)), int(m.group(2))) if m else None
 
 def ocr_date_cell(img, bbox):
