@@ -399,6 +399,24 @@ export default function Students({ onNavigate }: StudentsProps) {
       return { ...prev, [dateISO]: updatedDay };
     });
   };
+
+  // ---- スケジュール保存 ----
+  const saveSchedule = () => {
+      if (!selectedStudent || !selectedTermId) return;
+      const updated = {
+        ...selectedStudent,
+        schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
+      };
+      const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+      setStudents(newStudents);
+      setSelectedStudent(updated);
+
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const appData = raw ? JSON.parse(raw) : {};
+      if (!appData["user1"]) appData["user1"] = { students: [] };
+      appData["user1"].students = newStudents;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  };
   // ---- Render ----
   if (selectedStudent) {
     return (
