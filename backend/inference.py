@@ -265,7 +265,7 @@ def preprocess(cell):
 def normalize_digits(text: str) -> str:
     z2h = str.maketrans("０１２３４５６７８９", "0123456789")
     t = text.translate(z2h)
-    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1",
+    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1", "上": 1,
                     "{": "1", "｛": "1", "I": "1", "了": "7", "g": "8"}
     for k, v in replacements.items():
         t = t.replace(k, v)
@@ -336,7 +336,7 @@ def correct_days_forward(md_list):
     for (row, col, (month, day)) in md_list:
         if prev_day is not None:
             expected = prev_day + 1
-            if 1 <= day <= 9 and day + 10 == expected:
+            if (1 <= day <= 9 and day + 10 == expected) or (day >= 100):
                 day = expected
         corrected.append(((row, col), (month, day)))
         prev_day = day
@@ -349,7 +349,7 @@ def correct_days_backward(md_list):
         (row, col), (month, day) = corrected[i]
         if next_day is not None:
             expected = next_day - 1
-            if 1 <= day <= 9 and day + 10 == expected:
+            if (1 <= day <= 9 and day + 10 == expected) or (day >= 100):
                 day = expected
         corrected[i] = ((row, col), (month, day))
         next_day = day

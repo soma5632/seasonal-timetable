@@ -239,6 +239,9 @@ export default function Students({ onNavigate }: StudentsProps) {
         const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
         if (slotIdx < 0) return;
 
+        // closedセルは上書きしない
+        if (prev[iso]?.[slotIdx] === "closed") return;
+
         // slash を × に統一
         let tag: "blank" | "×" | "triangle" = "blank";
         if (item.tag === "x" || item.tag === "×" || item.tag === "slash" || item.tag === "/") tag = "×";
@@ -378,27 +381,24 @@ export default function Students({ onNavigate }: StudentsProps) {
     });
   };
 
-  // ---- スケジュール保存 ----
-  const saveSchedule = () => {
-    if (!selectedStudent || !selectedTermId) return;
-    const updated = {
-      ...selectedStudent,
-      schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
-    };
-    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
-    setStudents(newStudents);
-    setSelectedStudent(updated);
+  // ---- 日付クリックで一括切替 ----
+  const toggleDay = (dateISO: string) => {
+    setScheduleByDate(prev => {
+      const updatedDay = { ...(prev[dateISO] || {}) };
+      const order = ["blank","×","triangle"];
+      // closed以外の最初のセルを基準にする
+      const firstTag = Object.values(updatedDay).find(t => t !== "closed") || "blank";
+      const next = order[(order.indexOf(firstTag) + 1) % order.length];
 
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      Object.keys(updatedDay).forEach(idx => {
+        if (updatedDay[Number(idx)] !== "closed") {
+          updatedDay[Number(idx)] = next;
+        }
+      });
+
+      return { ...prev, [dateISO]: updatedDay };
+    });
   };
-
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
   // ---- Render ----
   if (selectedStudent) {
     return (
@@ -472,36 +472,7 @@ export default function Students({ onNavigate }: StudentsProps) {
           ))}
         </Select>
 
-        {/* AIスケジュール推定 */}
-        {selectedTermId && (
-          <Box mt={4}>
-            <Heading size="sm" mb={2}>AIでスケジュール推定</Heading>
-            <HStack spacing={3}>
-              {!cameraOn ? (
-                <Button size="sm" onClick={startCamera}>カメラ起動</Button>
-              ) : (
-                <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
-              )}
-              <Button size="sm" onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
-              <label>
-                <span style={{ padding: "4px 8px", border: "1px solid #ccc", fontSize: "smaller" }}>写真から選択</span>
-                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
-              </label>
-            </HStack>
-            <video ref={videoRef} autoPlay playsInline style={{ width: 240, background: "#000", marginTop: 8 }} />
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-
-            {/* プレビュー画像 */}
-            {previewUrl && (
-              <Box mt={4}>
-                <Heading size="sm" mb={2}>プレビュー</Heading>
-                <img src={previewUrl} alt="preview" style={{ width: 200, border: "1px solid #ccc" }} />
-              </Box>
-            )}
-          </Box>
-        )}
-
-        {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可） */}
+        {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可、日付クリックで一括切替） */}
         {dateRangeValid && weekBlocks.length > 0 && (
           <VStack align="stretch" spacing={4} mt={4}>
             {weekBlocks.map((block, blockIdx) => (
@@ -511,7 +482,14 @@ export default function Students({ onNavigate }: StudentsProps) {
                     <Tr>
                       <Th fontSize="xs" p={1}>時限</Th>
                       {block.dates.map(d => (
-                        <Th key={d.iso} fontSize="xs" p={1} textAlign="center">
+                        <Th
+                          key={d.iso}
+                          fontSize="xs"
+                          p={1}
+                          textAlign="center"
+                          cursor="pointer"
+                          onClick={() => toggleDay(d.iso)} // ★ 日付クリックで一括切替
+                        >
                           {d.label}({d.weekdayJa})
                         </Th>
                       ))}
