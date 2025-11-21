@@ -265,7 +265,7 @@ def preprocess(cell):
 def normalize_digits(text: str) -> str:
     z2h = str.maketrans("０１２３４５６７８９", "0123456789")
     t = text.translate(z2h)
-    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1", "上": 1,
+    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1", "上": "1",
                     "{": "1", "｛": "1", "I": "1", "了": "7", "g": "8"}
     for k, v in replacements.items():
         t = t.replace(k, v)
