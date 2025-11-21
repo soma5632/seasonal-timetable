@@ -305,6 +305,8 @@ def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
         if md:
             md_list.append((date_rc[0], date_rc[1], md))
 
+    print(f"[DEBUG] 修正前の日付：{md_list}")
+
     # 前方向補正
     corrected = correct_days_forward(md_list)
     # 後方向補正
