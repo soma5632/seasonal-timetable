@@ -239,7 +239,7 @@ export default function Students({ onNavigate }: StudentsProps) {
         if (slotIdx < 0) return;
 
         // ★ closedセルは上書きしない
-        if (prev[iso]?.[slotIdx] === "closed") return;
+        if (updated[iso]?.[slotIdx] === "closed") return;
 
         // slash を × に統一
         let tag: "blank" | "×" | "triangle" = "blank";
@@ -284,8 +284,10 @@ export default function Students({ onNavigate }: StudentsProps) {
         method: "POST",
         body: formData
       });
+      const text = await res.text();
+      console.log("API raw response:", text);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = await res.json();
+      const data: ScheduleItem[] = JSON.parse(text);
       applyAISchedule(data);
     } catch (err) {
       console.error("Upload/Inference failed:", err);
@@ -308,8 +310,10 @@ export default function Students({ onNavigate }: StudentsProps) {
         method: "POST",
         body: formData
       });
+      const text = await res.text();
+      console.log("API raw response:", text);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = await res.json();
+      const data: ScheduleItem[] = JSON.parse(text);
       applyAISchedule(data);
     } catch (err) {
       console.error("Upload/Inference failed:", err);
@@ -384,13 +388,13 @@ export default function Students({ onNavigate }: StudentsProps) {
     setScheduleByDate(prev => {
       const updatedDay = { ...(prev[dateISO] || {}) };
       const order = ["blank","×","triangle"];
-      // closed以外の最初のセルを基準にする
       const firstTag = Object.values(updatedDay).find(t => t !== "closed") || "blank";
       const next = order[(order.indexOf(firstTag) + 1) % order.length];
 
-      Object.keys(updatedDay).forEach(idx => {
-        if (updatedDay[Number(idx)] !== "closed") {
-          updatedDay[Number(idx)] = next;
+      Object.keys(updatedDay).forEach(idxStr => {
+        const idx = Number(idxStr);
+        if (updatedDay[idx] !== "closed") {
+          updatedDay[idx] = next;
         }
       });
 
@@ -415,6 +419,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     appData["user1"].students = newStudents;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
   // ---- Render ----
   if (selectedStudent) {
     return (
@@ -488,29 +496,34 @@ export default function Students({ onNavigate }: StudentsProps) {
           ))}
         </Select>
 
-        {/* 画像アップロード・カメラ起動 */}
+        {/* AIスケジュール推定 */}
         {selectedTermId && (
-          <HStack mt={4} spacing={4}>
-            <Button size="sm" onClick={startCamera}>カメラ起動</Button>
-            <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
-            <Button size="sm" onClick={captureAndSend} isDisabled={!cameraOn}>撮影して送信</Button>
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              size="sm"
-              maxW="200px"
-            />
-          </HStack>
-        )}
-        {previewUrl && (
-          <Box mt={2}>
-            <Text fontSize="sm">プレビュー:</Text>
-            <img src={previewUrl} alt="preview" style={{ maxWidth: "300px", border: "1px solid #ccc" }} />
+          <Box mt={4}>
+            <Heading size="sm" mb={2}>AIでスケジュール推定</Heading>
+            <HStack spacing={3}>
+              {!cameraOn ? (
+                <Button size="sm" onClick={startCamera}>カメラ起動</Button>
+              ) : (
+                <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
+              )}
+              <Button size="sm" onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
+              <label>
+                <span style={{ padding: "4px 8px", border: "1px solid #ccc", fontSize: "smaller" }}>写真から選択</span>
+                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
+              </label>
+            </HStack>
+            <video ref={videoRef} autoPlay playsInline style={{ width: 240, background: "#000", marginTop: 8 }} />
+            <canvas ref={canvasRef} style={{ display: "none" }} />
+
+            {/* プレビュー画像 */}
+            {previewUrl && (
+              <Box mt={4}>
+                <Heading size="sm" mb={2}>プレビュー</Heading>
+                <img src={previewUrl} alt="preview" style={{ width: 200, border: "1px solid #ccc" }} />
+              </Box>
+            )}
           </Box>
         )}
-        <video ref={videoRef} autoPlay playsInline style={{ display: cameraOn ? "block" : "none", width: "300px", marginTop: "8px" }} />
-        <canvas ref={canvasRef} style={{ display: "none" }} />
 
         {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可、日付クリックで一括切替） */}
         {dateRangeValid && weekBlocks.length > 0 && (
@@ -639,12 +652,13 @@ export default function Students({ onNavigate }: StudentsProps) {
               setNewGrade("");
               setShowForm(false);
             }}>登録</Button>
-            <Button size="sm" onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>キャンセル</Button>
+            <Button size="sm" onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>
+              キャンセル
+            </Button>
           </HStack>
         </VStack>
       )}
-
-      {/* 学年ごとの一覧表示 */}
+        {/* 学年ごとの一覧表示 */}
       {gradeOptions.map(grade => (
         <Box key={grade} mt={6}>
           <Heading size="sm" mb={2}>{grade}</Heading>
