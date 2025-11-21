@@ -274,7 +274,7 @@ def normalize_digits(text: str) -> str:
 # --- 日付抽出 ---
 def parse_month_day(text: str):
     t = normalize_digits(text)
-    m = re.search(r'(\d+)\s*[日曰月]\s*(\d+)\s*[日曰月]', t)
+    m = re.search(r'(\d+)\s*[日曰月昌明肖育甲旦冒]\s*(\d+)\s*[日曰月昌白田甲由旦]', t)
     return (int(m.group(1)), int(m.group(2))) if m else None
 
 def ocr_date_cell(img, bbox):
@@ -287,6 +287,7 @@ def ocr_date_cell(img, bbox):
         lang="jpn",
         config=config
     ).strip()
+    print(f"[DEBUG] 素材そのままの日付：{text}")
     return parse_month_day(text)
 
 def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
@@ -311,6 +312,7 @@ def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
 
     # schedule_map に展開
     for (row, col), md in corrected:
+        print(f"[DEBUG] 修正後の日付：{md}")
         target_rcs = rc_to_indices.get((row, col), [])
         for rc in target_rcs:
             if rc not in rc_to_cell:
