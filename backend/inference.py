@@ -274,6 +274,7 @@ def normalize_digits(text: str) -> str:
 # --- 日付抽出 ---
 def parse_month_day(text: str):
     t = normalize_digits(text)
+    t = t.replace(" ", "")
     m = re.search(r'(\d+)\s*[一-龥]+\s*(\d+)\s*[一-龥]+', t)
     return (int(m.group(1)), int(m.group(2))) if m else None
 
