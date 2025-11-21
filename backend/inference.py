@@ -274,8 +274,7 @@ def normalize_digits(text: str) -> str:
 # --- 日付抽出 ---
 def parse_month_day(text: str):
     t = normalize_digits(text)
-    t = t.replace(" ", "")
-    m = re.search(r'(\d+)\s*[一-龥]+\s*(\d+)\s*[一-龥]+', t)
+    m = re.search(r'(\d+)\s+[一-龥]+(?:\s+[一-龥]+)?\s+(\d+)\s*[一-龥]+', t)
     return (int(m.group(1)), int(m.group(2))) if m else None
 
 def ocr_date_cell(img, bbox):
@@ -337,7 +336,7 @@ def correct_days_forward(md_list):
     for (row, col, (month, day)) in md_list:
         if prev_day is not None:
             expected = prev_day + 1
-            if abs(day - expected) == 1 or (1 <= day <= 9 and day + 10 == expected):
+            if 1 <= day <= 9 and day + 10 == expected:
                 day = expected
         corrected.append(((row, col), (month, day)))
         prev_day = day
@@ -350,7 +349,7 @@ def correct_days_backward(md_list):
         (row, col), (month, day) = corrected[i]
         if next_day is not None:
             expected = next_day - 1
-            if abs(day - expected) == 1 or (1 <= day <= 9 and day + 10 == expected):
+            if 1 <= day <= 9 and day + 10 == expected:
                 day = expected
         corrected[i] = ((row, col), (month, day))
         next_day = day
