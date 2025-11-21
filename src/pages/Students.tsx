@@ -488,6 +488,30 @@ export default function Students({ onNavigate }: StudentsProps) {
           ))}
         </Select>
 
+        {/* 画像アップロード・カメラ起動 */}
+        {selectedTermId && (
+          <HStack mt={4} spacing={4}>
+            <Button size="sm" onClick={startCamera}>カメラ起動</Button>
+            <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
+            <Button size="sm" onClick={captureAndSend} isDisabled={!cameraOn}>撮影して送信</Button>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              size="sm"
+              maxW="200px"
+            />
+          </HStack>
+        )}
+        {previewUrl && (
+          <Box mt={2}>
+            <Text fontSize="sm">プレビュー:</Text>
+            <img src={previewUrl} alt="preview" style={{ maxWidth: "300px", border: "1px solid #ccc" }} />
+          </Box>
+        )}
+        <video ref={videoRef} autoPlay playsInline style={{ display: cameraOn ? "block" : "none", width: "300px", marginTop: "8px" }} />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
         {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可、日付クリックで一括切替） */}
         {dateRangeValid && weekBlocks.length > 0 && (
           <VStack align="stretch" spacing={4} mt={4}>
