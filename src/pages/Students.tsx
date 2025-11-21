@@ -173,7 +173,6 @@ export default function Students({ onNavigate }: StudentsProps) {
     appData["user1"].students = newStudents;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
-
   // ---- Camera ----
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -239,7 +238,7 @@ export default function Students({ onNavigate }: StudentsProps) {
         const slotIdx = timeSlots.findIndex(slot => slot === normalizeTime(item.time));
         if (slotIdx < 0) return;
 
-        // closedセルは上書きしない
+        // ★ closedセルは上書きしない
         if (prev[iso]?.[slotIdx] === "closed") return;
 
         // slash を × に統一
@@ -316,7 +315,6 @@ export default function Students({ onNavigate }: StudentsProps) {
       console.error("Upload/Inference failed:", err);
     }
   };
-
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
@@ -402,20 +400,20 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
-      if (!selectedStudent || !selectedTermId) return;
-      const updated = {
-        ...selectedStudent,
-        schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
-      };
-      const newStudents = students.map(s => (s.id === updated.id ? updated : s));
-      setStudents(newStudents);
-      setSelectedStudent(updated);
+    if (!selectedStudent || !selectedTermId) return;
+    const updated = {
+      ...selectedStudent,
+      schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
+    };
+    const newStudents = students.map(s => (s.id === updated.id ? updated : s));
+    setStudents(newStudents);
+    setSelectedStudent(updated);
 
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const appData = raw ? JSON.parse(raw) : {};
-      if (!appData["user1"]) appData["user1"] = { students: [] };
-      appData["user1"].students = newStudents;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const appData = raw ? JSON.parse(raw) : {};
+    if (!appData["user1"]) appData["user1"] = { students: [] };
+    appData["user1"].students = newStudents;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
   };
   // ---- Render ----
   if (selectedStudent) {
@@ -572,7 +570,8 @@ export default function Students({ onNavigate }: StudentsProps) {
       </Box>
     );
   }
-  // 一覧＋新規登録フォーム
+
+  // ---- 一覧＋新規登録フォーム ----
   return (
     <Box p={4}>
       <Heading size="md" mb={4}>生徒管理</Heading>
