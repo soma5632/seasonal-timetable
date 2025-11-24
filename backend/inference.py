@@ -459,7 +459,7 @@ def run_inference(image_path, start_date, end_date):
     indexed_cells, _, _ = assign_indices(classified_cells)
 
     # ★ ターム期間ベースで日付割り当て
-    schedule_map = assign_dates(indexed_cells, rc_to_indices, row_to_time,
+    schedule_map = assign_dates(indexed_cells, row_to_time,
                                 start_date, end_date)
 
     # 各セルの特徴抽出＋SVM分類
