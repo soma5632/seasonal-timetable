@@ -30,7 +30,18 @@ export default function App() {
       case 'term':
         return <TermManager onNavigate={setPage} currentUserId={currentUserId} />;
       case 'home':
-        return <Home onNavigate={setPage} />;
+        return (
+            <Home
+              onNavigate={setPage}
+              currentUserId={currentUserId}
+              onLogout={() => {
+                localStorage.removeItem("currentUserId");
+                setCurrentUserId("");
+                setPage("login");
+              }}
+            />
+        );
+
       default:
         return <Login onLogin={setCurrentUserId} onNavigate={setPage} />;
     }

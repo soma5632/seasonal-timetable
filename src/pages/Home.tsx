@@ -15,9 +15,11 @@ type Props = {
   onNavigate: (
     page: 'home' | 'students' | 'teachers' | 'timetable' | 'term' | "login" | "signup"
   ) => void;
+  currentUserId: string; // ★ 追加
+  onLogout: () => void;  // ★ ログアウト用コールバック
 };
 
-export default function Home({ onNavigate }: Props) {
+export default function Home({ onNavigate, currentUserId, onLogout }: Props) {
   const buttonSize = useBreakpointValue({ base: 'md', md: 'lg' });
 
   return (
@@ -25,17 +27,24 @@ export default function Home({ onNavigate }: Props) {
       <Heading size="lg" mb={4}>
         季節講習スケジューラー
       </Heading>
+
+      {/* ログイン中ユーザの表示 */}
+      <Text fontSize="sm" mb={2} color="gray.600">
+        ログイン中のユーザ: <strong>{currentUserId}</strong>
+      </Text>
+
+      {/* ログアウトボタン */}
+      <Button size="sm" colorScheme="red" mb={6} onClick={onLogout}>
+        ログアウト
+      </Button>
+
       <Text fontSize="md" mb={6}>
         ①タームを登録 → ②生徒・先生情報を入力 → ③時間割を自動生成 → ④修正・印刷
       </Text>
 
       {/* カード形式で各機能を表示 */}
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-        <Card
-          cursor="pointer"
-          onClick={() => onNavigate('term')}
-          _hover={{ shadow: 'md' }}
-        >
+        <Card cursor="pointer" onClick={() => onNavigate('term')} _hover={{ shadow: 'md' }}>
           <CardHeader>
             <Heading size="md">① ターム管理</Heading>
           </CardHeader>
@@ -46,11 +55,7 @@ export default function Home({ onNavigate }: Props) {
           </CardBody>
         </Card>
 
-        <Card
-          cursor="pointer"
-          onClick={() => onNavigate('students')}
-          _hover={{ shadow: 'md' }}
-        >
+        <Card cursor="pointer" onClick={() => onNavigate('students')} _hover={{ shadow: 'md' }}>
           <CardHeader>
             <Heading size="md">② 生徒情報入力</Heading>
           </CardHeader>
@@ -61,11 +66,7 @@ export default function Home({ onNavigate }: Props) {
           </CardBody>
         </Card>
 
-        <Card
-          cursor="pointer"
-          onClick={() => onNavigate('teachers')}
-          _hover={{ shadow: 'md' }}
-        >
+        <Card cursor="pointer" onClick={() => onNavigate('teachers')} _hover={{ shadow: 'md' }}>
           <CardHeader>
             <Heading size="md">③ 先生情報入力</Heading>
           </CardHeader>
@@ -76,11 +77,7 @@ export default function Home({ onNavigate }: Props) {
           </CardBody>
         </Card>
 
-        <Card
-          cursor="pointer"
-          onClick={() => onNavigate('timetable')}
-          _hover={{ shadow: 'md' }}
-        >
+        <Card cursor="pointer" onClick={() => onNavigate('timetable')} _hover={{ shadow: 'md' }}>
           <CardHeader>
             <Heading size="md">④ 時間割管理</Heading>
           </CardHeader>
