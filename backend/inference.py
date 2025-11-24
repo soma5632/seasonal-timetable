@@ -345,7 +345,7 @@ def run_inference(image_path, start_date, end_date):
         raise FileNotFoundError(f"画像が読み込めませんでした: {os.path.abspath(image_path)}")
 
     # 学習済みモデルをロード
-    clf = joblib.load("svm_model (1).pkl")
+    clf = joblib.load("svm_model(1).pkl")
 
     # 前処理
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
