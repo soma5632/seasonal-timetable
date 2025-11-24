@@ -346,7 +346,7 @@ def add_days_skip_sunday(start_dt, offset_days):
         days_added += 1
     return current_date
 
-def assign_dates(indexed_cells, row_to_time, start_date, end_date):
+def assign_dates(indexed_cells,  rc_to_indices, row_to_time, start_date, end_date):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
