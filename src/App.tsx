@@ -4,11 +4,13 @@ import Students from './pages/Students';
 import Teachers from './pages/Teachers';
 import TimetableManager from './pages/TimetableManager';
 import TermManager from './pages/TermManager';
-import Login from './pages/Login'; // ← 追加
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
+
 
 export default function App() {
   const [page, setPage] = useState<
-    'login' | 'home' | 'timetable' | 'students' | 'teachers' | 'term'
+    'login' | "signup" | 'home' | 'timetable' | 'students' | 'teachers' | 'term'
   >('login'); // ← 初期ページを login に
 
   const [currentUserId, setCurrentUserId] = useState<string>(
@@ -17,6 +19,8 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
+      case 'signup':
+        return <SignUp onNavigate={setPage} />;
       case 'students':
         return <Students onNavigate={setPage} currentUserId={currentUserId} />;
       case 'teachers':

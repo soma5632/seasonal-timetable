@@ -164,7 +164,7 @@ const CELL_STYLE = {
 type TimetableManagerProps = {
   onNavigate: React.Dispatch<
     React.SetStateAction<
-      "home" | "students" | "teachers" | "timetable" | "term" | "login"
+      "home" | "students" | "teachers" | "timetable" | "term" | "login" | "signup"
     >
   >;
   currentUserId: string;
