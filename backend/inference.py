@@ -346,24 +346,33 @@ def add_days_skip_sunday(start_dt, offset_days):
         days_added += 1
     return current_date
 
-def assign_dates(indexed_cells, row_to_time, start_date, end_date):
+def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
+    rc_to_cell = {rc: (bbox, tag) for (rc, bbox, tag) in indexed_cells}
     schedule_map = []
 
-    for (row, col), bbox, tag in indexed_cells:
-        # 列番号 col をそのまま日付オフセットに使う
+    # 列インデックス順に処理
+    date_cells_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[1])
+
+    for date_rc in date_cells_sorted:
+        col = date_rc[1]
         target_date = add_days_skip_sunday(start_dt, col - 1)
         if target_date > end_dt:
-            continue
+            break
 
-        schedule_map.append({
-            "rc": (row, col),
-            "date": (target_date.month, target_date.day),
-            "time": row_to_time.get(row),
-            "bbox": bbox
-        })
+        target_rcs = rc_to_indices.get(date_rc, [])
+        for rc in target_rcs:
+            if rc not in rc_to_cell:
+                continue
+            bbox, tag = rc_to_cell[rc]
+            schedule_map.append({
+                "rc": rc,
+                "date": (target_date.month, target_date.day),
+                "time": row_to_time.get(rc[0]),
+                "bbox": bbox
+            })
 
     return schedule_map
 
@@ -459,7 +468,7 @@ def run_inference(image_path, start_date, end_date):
     indexed_cells, _, _ = assign_indices(classified_cells)
 
     # ★ ターム期間ベースで日付割り当て
-    schedule_map = assign_dates(indexed_cells, row_to_time,
+    schedule_map = assign_dates(indexed_cells, rc_to_indices, row_to_time,
                                 start_date, end_date)
 
     # 各セルの特徴抽出＋SVM分類
