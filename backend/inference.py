@@ -254,44 +254,50 @@ def assign_indices(cells, row_tol=None, col_tol=None):
     return indexed, row_centers, col_centers
 
 def add_days_skip_sunday(start_dt, offset_days):
-    """
-    start_dt: datetime (必ず月曜日)
-    offset_days: 月曜〜土曜だけを数えるインデックス
-    """
+    # start_dt は必ず月曜
     days_added = 0
     current_date = start_dt
     while days_added < offset_days:
         current_date += timedelta(days=1)
-        # 日曜日はスキップ
-        if current_date.weekday() == 6:  # 0=月曜, 6=日曜
+        if current_date.weekday() == 6:  # 0=月, 6=日
             continue
         days_added += 1
     return current_date
 
-def assign_dates(indexed_cells, row_to_time, start_date, end_date):
+def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
+    # indexed_cells を辞書化して、存在するセルだけに出力する
+    cell_map = { (row, col): (bbox, tag) for (row, col), bbox, tag in indexed_cells }
+
     schedule_map = []
 
-    # 列ごとにまとめる
-    cols = sorted(set(col for (_, col), _, _ in indexed_cells))
+    # 週ブロックのヘッダ行を、rc_to_indices のキーから抽出して並べ替え
+    header_rows = sorted({ key_row for (key_row, key_col) in rc_to_indices.keys() })
 
-    for col in cols:
-        target_date = add_days_skip_sunday(start_dt, col - 1)
-        if target_date > end_dt:
-            continue
-
-        # この列に属するセルをまとめて処理
-        for (row, c), bbox, tag in indexed_cells:
-            if c != col:
+    # 週インデックスごとに処理（各週は6日＝月〜土）
+    for week_idx, header_row in enumerate(header_rows):
+        for day_col in range(1, 7):  # 1..6 = 月..土
+            # この週＋曜日のオフセット（6日刻みで進む。日曜は add_days_skip_sunday が自動スキップ）
+            day_offset = week_idx * 6 + (day_col - 1)
+            target_date = add_days_skip_sunday(start_dt, day_offset)
+            if target_date > end_dt:
                 continue
-            schedule_map.append({
-                "rc": (row, col),
-                "date": (target_date.month, target_date.day),
-                "time": row_to_time.get(row, ""),
-                "bbox": bbox
-            })
+
+            # この（週ヘッダ行, 曜日列）に属する全セル
+            rcs = rc_to_indices.get((header_row, day_col), [])
+            for (row, col) in rcs:
+                # indexed_cells に実在するセルのみ出力（ズレや抜け対策）
+                if (row, col) not in cell_map:
+                    continue
+                bbox, _tag_ignored = cell_map[(row, col)]
+                schedule_map.append({
+                    "rc": (row, col),
+                    "date": (target_date.month, target_date.day),
+                    "time": row_to_time.get(row, ""),  # null対策
+                    "bbox": bbox
+                })
 
     return schedule_map
 
@@ -360,7 +366,8 @@ def run_inference(image_path, start_date, end_date):
     print(indexed_cells)
 
     # ★ ターム期間ベースで日付割り当て
-    schedule_map = assign_dates(indexed_cells, row_to_time, start_date, end_date)
+    schedule_map = assign_dates(indexed_cells, rc_to_indices, row_to_time,
+                                start_date, end_date)
 
     # 各セルの特徴抽出＋SVM分類
     for i, cell in enumerate(schedule_map):
