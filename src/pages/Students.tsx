@@ -256,68 +256,75 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // ---- 画像送信処理 ----
   const captureAndSend = async () => {
-    if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
+      if (!videoRef.current || !canvasRef.current || !selectedStudent || !selectedTermId) return;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+      const term = terms.find(t => t.id === selectedTermId); // ★ 選択中タームを取得
 
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    const blob = await new Promise<Blob | null>(resolve =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92)
-    );
-    if (!blob) return;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const formData = new FormData();
-    formData.append("file", blob, "capture.jpg");
-    formData.append("student_id", String(selectedStudent.id));
-    formData.append("term_id", selectedTermId);
+      const blob = await new Promise<Blob | null>(resolve =>
+        canvas.toBlob(resolve, "image/jpeg", 0.92)
+      );
+      if (!blob) return;
 
-    setPreviewUrl(URL.createObjectURL(blob));
+      const formData = new FormData();
+      formData.append("file", blob, "capture.jpg");
+      formData.append("student_id", String(selectedStudent.id));
+      formData.append("term_id", selectedTermId);
+      formData.append("start_date", term?.startDate || ""); // ★ 追加
+      formData.append("end_date", term?.endDate || "");     // ★ 追加
 
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      const text = await res.text();
-      console.log("API raw response:", text);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = JSON.parse(text);
-      applyAISchedule(data);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
+      setPreviewUrl(URL.createObjectURL(blob));
+
+      try {
+        const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+          method: "POST",
+          body: formData
+        });
+        const text = await res.text();
+        console.log("API raw response:", text);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ScheduleItem[] = JSON.parse(text);
+        applyAISchedule(data);
+      } catch (err) {
+        console.error("Upload/Inference failed:", err);
+      }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !selectedStudent || !selectedTermId) return;
-    const file = e.target.files[0];
+      if (!e.target.files || !selectedStudent || !selectedTermId) return;
+      const file = e.target.files[0];
+      const term = terms.find(t => t.id === selectedTermId); // ★ 選択中タームを取得
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("student_id", String(selectedStudent.id));
-    formData.append("term_id", selectedTermId);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("student_id", String(selectedStudent.id));
+      formData.append("term_id", selectedTermId);
+      formData.append("start_date", term?.startDate || ""); // ★ 追加
+      formData.append("end_date", term?.endDate || "");     // ★ 追加
 
-    setPreviewUrl(URL.createObjectURL(file));
+      setPreviewUrl(URL.createObjectURL(file));
 
-    try {
-      const res = await fetch("https://api.souma-lab.com/schedule/upload", {
-        method: "POST",
-        body: formData
-      });
-      const text = await res.text();
-      console.log("API raw response:", text);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ScheduleItem[] = JSON.parse(text);
-      applyAISchedule(data);
-    } catch (err) {
-      console.error("Upload/Inference failed:", err);
-    }
+      try {
+        const res = await fetch("https://api.souma-lab.com/schedule/upload", {
+          method: "POST",
+          body: formData
+        });
+        const text = await res.text();
+        console.log("API raw response:", text);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ScheduleItem[] = JSON.parse(text);
+        applyAISchedule(data);
+      } catch (err) {
+        console.error("Upload/Inference failed:", err);
+      }
   };
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {

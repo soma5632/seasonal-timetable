@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 from inference import run_inference
 import os
 from PIL import Image
@@ -13,8 +13,13 @@ def upload_schedule():
     try:
         file = request.files.get("file")
         student_id = request.form.get("student_id")
+        start_date = request.form.get("start_date")  # ★ 追加
+        end_date = request.form.get("end_date")      # ★ 追加
+
         if not file:
             return jsonify({"error": "No file uploaded"}), 400
+        if not start_date or not end_date:
+            return jsonify({"error": "Missing start_date or end_date"}), 400
 
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
@@ -40,16 +45,15 @@ def upload_schedule():
 
         print(f"[DEBUG] Cropped image saved at {filepath}")
 
-        # OCR推定
-        schedule_map = run_inference(filepath)
+        # ★ 推定処理（ターム期間を渡す）
+        schedule_map = run_inference(filepath, start_date, end_date)
         print(f"[DEBUG] Inference result: {schedule_map}")
 
         if schedule_map is None:
-            if schedule_map is None:
-                return jsonify({
-                    "status": "error",
-                    "message": "推論に失敗しました。画像を確認してください。"
-                }), 200
+            return jsonify({
+                "status": "error",
+                "message": "推論に失敗しました。画像を確認してください。"
+            }), 200
 
         return jsonify(schedule_map)
 

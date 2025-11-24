@@ -6,6 +6,7 @@ import re
 from skimage.feature import hog
 import joblib
 import os
+from datetime import datetime, timedelta
 
 
 row_to_time = {
@@ -290,6 +291,7 @@ def ocr_date_cell(img, bbox):
     print(f"[DEBUG] 素材そのままの日付：{text}")
     return parse_month_day(text)
 
+"""
 def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
     rc_to_cell = {rc: (bbox, tag) for (rc, bbox, tag) in indexed_cells}
     schedule_map = []
@@ -324,6 +326,42 @@ def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
                 "rc": rc,
                 "date": md,
                 "time": row_to_time.get(rc[0]),
+                "bbox": bbox
+            })
+
+    return schedule_map
+"""
+def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date):
+    """
+    indexed_cells: [(rowcol, bbox, tag), ...]
+    rc_to_indices: dict mapping (row,col) -> list of rc
+    row_to_time: dict mapping row index -> 時限ラベル
+    start_date, end_date: "YYYY-MM-DD" 形式の文字列
+    """
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    rc_to_cell = {rc: (bbox, tag) for (rc, bbox, tag) in indexed_cells}
+    schedule_map = []
+
+    # 日付セルを列インデックス順に処理
+    date_cells_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[1])  # col順で並べる
+
+    for col_idx, date_rc in enumerate(date_cells_sorted):
+        target_date = start_dt + timedelta(days=col_idx)
+        if target_date > end_dt:
+            break
+
+        target_rcs = rc_to_indices.get(date_rc, [])
+        for rc in target_rcs:
+            if rc not in rc_to_cell:
+                continue
+            bbox, tag = rc_to_cell[rc]
+            schedule_map.append({
+                "rc": rc,
+                "date": (target_date.month, target_date.day),
+                "time": row_to_time.get(rc[0]),  # 行番号から時限を取得
                 "bbox": bbox
             })
 
@@ -363,6 +401,7 @@ def extract_features(img, size=(32,32)):
     return feat
 
 
+"""
 # --- メイン推論関数 ---
 def run_inference(image_path):
     image = cv2.imread(image_path)
@@ -380,6 +419,50 @@ def run_inference(image_path):
     indexed_cells, _, _ = assign_indices(classified_cells)
     schedule_map = assign_dates(indexed_cells, rc_to_indices, roi, row_to_time)
 
+    for i, cell in enumerate(schedule_map):
+        x, y, w, h = cell['bbox']
+        roi_cell = cv2.cvtColor(roi[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
+        feat = extract_features(roi_cell)
+        pred = clf.predict([feat])[0]
+        schedule_map[i]['tag'] = str(pred)
+
+    return schedule_map
+"""
+def run_inference(image_path, start_date, end_date):
+    """
+    image_path: アップロードされた画像ファイルのパス
+    start_date, end_date: "YYYY-MM-DD" 形式の文字列（フロントから送信）
+    """
+
+    image = cv2.imread(image_path)
+    if image is None:
+        raise FileNotFoundError(f"画像が読み込めませんでした: {os.path.abspath(image_path)}")
+
+    # 学習済みモデルをロード
+    clf = joblib.load("svm_model (1).pkl")
+
+    # 前処理
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.adaptiveThreshold(~gray, 255,
+                                   cv2.ADAPTIVE_THRESH_MEAN_C,
+                                   cv2.THRESH_BINARY, 15, -2)
+
+    # 表領域抽出
+    roi = auto_table_warp(image, thresh)
+    mask = extract_grid(roi)
+
+    # セル抽出・分類
+    cells = extract_cells(roi, mask)
+    classified_cells = classify_cell(cells)
+
+    # 行列インデックス付け
+    indexed_cells, _, _ = assign_indices(classified_cells)
+
+    # ★ ターム期間ベースで日付割り当て
+    schedule_map = assign_dates(indexed_cells, rc_to_indices, row_to_time,
+                                start_date, end_date)
+
+    # 各セルの特徴抽出＋SVM分類
     for i, cell in enumerate(schedule_map):
         x, y, w, h = cell['bbox']
         roi_cell = cv2.cvtColor(roi[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
