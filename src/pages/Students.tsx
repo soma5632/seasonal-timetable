@@ -21,8 +21,9 @@ type Student = {
 
 type StudentsProps = {
   onNavigate: React.Dispatch<
-    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term">
+    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login">
   >;
+  currentUserId: string;
 };
 
 const gradeOptions = ["小1","小2","小3","小4","小5","小6","中1","中2","中3","高1","高2","高3"];
@@ -42,7 +43,7 @@ const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> =
 
 const STORAGE_KEY = "app-data";
 
-export default function Students({ onNavigate }: StudentsProps) {
+export default function Students({ onNavigate, currentUserId }: StudentsProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -73,11 +74,11 @@ export default function Students({ onNavigate }: StudentsProps) {
   const [dateRangeValid, setDateRangeValid] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        const userData = parsed["user1"];
+        const userData = parsed;
         if (userData && userData.terms) {
           const termList = Object.entries(userData.terms)
             .filter(([_, v]) => v !== null)
@@ -97,7 +98,7 @@ export default function Students({ onNavigate }: StudentsProps) {
         console.error("データ読み込み失敗:", e);
       }
     }
-  }, []);
+  }, [currentUserId]);
   // ---- Subjects ----
   const addSubject = () => {
     if (!selectedStudent || !newSubject || newCount === "" || newCount <= 0) return;
@@ -110,11 +111,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     setSelectedStudent(updated);
 
     // 保存
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = newStudents;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
     setNewSubject("");
     setNewCount("");
@@ -130,11 +130,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(newStudents);
     setSelectedStudent(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = newStudents;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
 
   // ---- NG Teachers ----
@@ -148,11 +147,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(newStudents);
     setSelectedStudent(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = newStudents;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
     setNewNgTeacher("");
   };
@@ -167,11 +165,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(newStudents);
     setSelectedStudent(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = newStudents;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
   // ---- Camera ----
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -209,11 +206,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     const updated = students.filter(s => s.id !== id);
     setStudents(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`); // ★ 修正
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = updated;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = updated; // ★ 修正
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
   // ---- AI推定処理 ----
   const normalizeTime = (t: string) => {
@@ -420,11 +416,10 @@ export default function Students({ onNavigate }: StudentsProps) {
     setStudents(newStudents);
     setSelectedStudent(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`); // ★ 修正
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { students: [] };
-    appData["user1"].students = newStudents;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.students = newStudents; // ★ 修正
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
 
   useEffect(() => {
@@ -657,11 +652,10 @@ export default function Students({ onNavigate }: StudentsProps) {
                   const updated = [...students, newStudent];
                   setStudents(updated);
 
-                  const raw = localStorage.getItem(STORAGE_KEY);
+                  const raw = localStorage.getItem(`user_${currentUserId}`); // ★ 修正
                   const appData = raw ? JSON.parse(raw) : {};
-                  if (!appData["user1"]) appData["user1"] = { students: [] };
-                  appData["user1"].students = updated;
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                  appData.students = updated;
+                  localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData)); // ★ 修正
 
                   setNewName("");
                   setNewGrade("");

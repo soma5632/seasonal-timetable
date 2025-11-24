@@ -4,25 +4,31 @@ import Students from './pages/Students';
 import Teachers from './pages/Teachers';
 import TimetableManager from './pages/TimetableManager';
 import TermManager from './pages/TermManager';
+import Login from './pages/Login'; // ← 追加
 
 export default function App() {
-  // page に 'term' を追加
   const [page, setPage] = useState<
-    'home' | 'timetable' | 'students' | 'teachers' | 'term'
-  >('home');
+    'login' | 'home' | 'timetable' | 'students' | 'teachers' | 'term'
+  >('login'); // ← 初期ページを login に
+
+  const [currentUserId, setCurrentUserId] = useState<string>(
+    localStorage.getItem("currentUserId") || ""
+  );
 
   const renderPage = () => {
     switch (page) {
       case 'students':
-        return <Students onNavigate={setPage} />;
+        return <Students onNavigate={setPage} currentUserId={currentUserId} />;
       case 'teachers':
-        return <Teachers onNavigate={setPage} />;
+        return <Teachers onNavigate={setPage} currentUserId={currentUserId} />;
       case 'timetable':
-        return <TimetableManager onNavigate={setPage} />;
+        return <TimetableManager onNavigate={setPage} currentUserId={currentUserId} />;
       case 'term':
-        return <TermManager onNavigate={setPage} />; // ★ ターム管理ページ
-      default:
+        return <TermManager onNavigate={setPage} currentUserId={currentUserId} />;
+      case 'home':
         return <Home onNavigate={setPage} />;
+      default:
+        return <Login onLogin={setCurrentUserId} onNavigate={setPage} />;
     }
   };
 

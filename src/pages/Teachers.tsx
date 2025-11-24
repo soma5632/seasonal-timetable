@@ -20,8 +20,9 @@ type Teacher = {
 
 type TeachersProps = {
   onNavigate: React.Dispatch<
-    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term">
+    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login">
   >;
+  currentUserId: string;
 };
 
 const subjectOptions = ["国語","数学","英語","理科","社会"];
@@ -39,7 +40,7 @@ const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> =
 };
 
 const STORAGE_KEY = "app-data";
-export default function Teachers({ onNavigate }: TeachersProps) {
+export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");

@@ -159,10 +159,16 @@ const CELL_STYLE = {
   closed: { bg: "gray.200", color: "red.600", symbol: "×" },
 };
 
-export default function TermManager({
-  onNavigate,
-}: { onNavigate: (page: 'home' | 'timetable' | 'students' | 'teachers' | 'term') => void }) {
-  const toast = useToast();
+type TermManagerProps = {
+  onNavigate: React.Dispatch<
+    React.SetStateAction<
+      "home" | "students" | "teachers" | "timetable" | "term" | "login"
+    >
+  >;
+  currentUserId: string;
+};
+
+export default function TermManager({ onNavigate, currentUserId }: TermManagerProps) {  const toast = useToast();
 
   // state
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));

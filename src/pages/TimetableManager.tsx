@@ -160,10 +160,17 @@ const CELL_STYLE = {
   open: { bg: "white", color: "green.600", symbol: "〇" },
   closed: { bg: "gray.200", color: "red.600", symbol: "×" },
 };
-export default function TimetableManager({
-  onNavigate,
-}: { onNavigate: (page: "home" | "timetable" | "students" | "teachers") => void }) {
-  const toast = useToast();
+
+type TimetableManagerProps = {
+  onNavigate: React.Dispatch<
+    React.SetStateAction<
+      "home" | "students" | "teachers" | "timetable" | "term" | "login"
+    >
+  >;
+  currentUserId: string;
+};
+
+export default function TimetableManager({ onNavigate, currentUserId }: TimetableManagerProps) {  const toast = useToast();
 
   // 既存の週ビュー state
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));

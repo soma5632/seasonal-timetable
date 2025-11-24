@@ -13,7 +13,7 @@ import {
 
 type Props = {
   onNavigate: (
-    page: 'home' | 'students' | 'teachers' | 'timetable' | 'term'
+    page: 'home' | 'students' | 'teachers' | 'timetable' | 'term' | "login"
   ) => void;
 };
 
