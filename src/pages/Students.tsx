@@ -621,6 +621,9 @@ export default function Students({ onNavigate }: StudentsProps) {
   return (
     <Box p={4}>
       <Heading size="md" mb={4}>生徒管理</Heading>
+      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
+          ホームに戻る
+       </Button>
 
       {!showForm ? (
         <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
