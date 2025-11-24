@@ -356,9 +356,9 @@ def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date
     # 列インデックス順に処理
     date_cells_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[1])
 
-    for col_idx, date_rc in enumerate(date_cells_sorted):
-        # ★ col_idx を「月曜〜土曜だけのオフセット」として扱う
-        target_date = add_days_skip_sunday(start_dt, col_idx)
+    for date_rc in date_cells_sorted:
+        col = date_rc[1]  # 列番号（1始まり）
+        target_date = add_days_skip_sunday(start_dt, col - 1)
         if target_date > end_dt:
             break
 
