@@ -357,6 +357,7 @@ def run_inference(image_path, start_date, end_date):
 
     # 行列インデックス付け
     indexed_cells, _, _ = assign_indices(classified_cells)
+    print(indexed_cells)
 
     # ★ ターム期間ベースで日付割り当て
     schedule_map = assign_dates(indexed_cells, row_to_time, start_date, end_date)
