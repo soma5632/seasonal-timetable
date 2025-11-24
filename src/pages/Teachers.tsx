@@ -594,72 +594,37 @@ export default function Teachers({ onNavigate }: TeachersProps) {
 
   // ---- 一覧＋新規登録フォーム ----
   return (
-    <Box p={4}>
-      <Heading size="md" mb={4}>先生管理</Heading>
-      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
-          ホームに戻る
-      </Button>
+      <Box p={4}>
+        <Heading size="md" mb={4}>先生管理</Heading>
 
-      {!showForm ? (
-        <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
-      ) : (
-        <VStack align="start" spacing={3} mt={2} mb={4}>
-          <Input
-            type="text"
-            placeholder="名前を入力"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            size="sm"
-          />
-          <HStack>
-            <Button size="sm" onClick={() => {
-              if (!newName.trim()) return;
-              const newTeacher: Teacher = {
-                id: Date.now(),
-                name: newName.trim(),
-                possibleSubjects: [],
-                schedules: {},
-                ngStudents: [],
-              };
-              const updated = [...teachers, newTeacher];
-              setTeachers(updated);
+        {/* ホームに戻る＋新規登録ボタンを縦並びに */}
+        <VStack align="start" spacing={2} mb={4}>
+          <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
+            ホームに戻る
+          </Button>
 
-              const raw = localStorage.getItem(STORAGE_KEY);
-              const appData = raw ? JSON.parse(raw) : {};
-              if (!appData["user1"]) appData["user1"] = { teachers: [] };
-              appData["user1"].teachers = updated;
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-
-              setNewName("");
-              setShowForm(false);
-            }}>登録</Button>
-            <Button size="sm" onClick={() => { setShowForm(false); setNewName(""); }}>
-              キャンセル
-            </Button>
-          </HStack>
-        </VStack>
-      )}
-
-      {/* 一覧表示 */}
-      <Box mt={6}>
-        <Heading size="sm" mb={2}>先生一覧</Heading>
-        <HStack wrap="wrap" spacing={4}>
-          {teachers.map(t => (
-            <Box
-              key={t.id}
-              borderWidth="1px"
-              borderRadius="md"
-              p={2}
-              w="200px"
-              bg="white"
-              boxShadow="sm"
-            >
-              <Text fontWeight="bold" mb={2} fontSize="sm">{t.name}</Text>
-              <HStack spacing={2}>
-                <Button size="xs" onClick={() => setSelectedTeacher(t)}>詳細を見る</Button>
-                <Button size="xs" colorScheme="red" onClick={() => {
-                  if (!window.confirm("本当に削除しますか？")) return;
-                  const updated = teachers.filter(x => x.id !== t.id);
+          {!showForm ? (
+            <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
+          ) : (
+            <VStack align="start" spacing={3} mt={2}>
+              <Input
+                type="text"
+                placeholder="名前を入力"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                size="sm"
+              />
+              <HStack>
+                <Button size="sm" onClick={() => {
+                  if (!newName.trim()) return;
+                  const newTeacher: Teacher = {
+                    id: Date.now(),
+                    name: newName.trim(),
+                    possibleSubjects: [],
+                    schedules: {},
+                    ngStudents: [],
+                  };
+                  const updated = [...teachers, newTeacher];
                   setTeachers(updated);
 
                   const raw = localStorage.getItem(STORAGE_KEY);
@@ -667,12 +632,54 @@ export default function Teachers({ onNavigate }: TeachersProps) {
                   if (!appData["user1"]) appData["user1"] = { teachers: [] };
                   appData["user1"].teachers = updated;
                   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                }}>削除</Button>
+
+                  setNewName("");
+                  setShowForm(false);
+                }}>登録</Button>
+                <Button size="sm" onClick={() => {
+                  setShowForm(false);
+                  setNewName("");
+                }}>
+                  キャンセル
+                </Button>
               </HStack>
-            </Box>
-          ))}
-        </HStack>
+            </VStack>
+          )}
+        </VStack>
+
+        {/* 一覧表示 */}
+        <Box mt={6}>
+          <Heading size="sm" mb={2}>先生一覧</Heading>
+          <HStack wrap="wrap" spacing={4}>
+            {teachers.map(t => (
+              <Box
+                key={t.id}
+                borderWidth="1px"
+                borderRadius="md"
+                p={2}
+                w="200px"
+                bg="white"
+                boxShadow="sm"
+              >
+                <Text fontWeight="bold" mb={2} fontSize="sm">{t.name}</Text>
+                <HStack spacing={2}>
+                  <Button size="xs" onClick={() => setSelectedTeacher(t)}>詳細を見る</Button>
+                  <Button size="xs" colorScheme="red" onClick={() => {
+                    if (!window.confirm("本当に削除しますか？")) return;
+                    const updated = teachers.filter(x => x.id !== t.id);
+                    setTeachers(updated);
+
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    const appData = raw ? JSON.parse(raw) : {};
+                    if (!appData["user1"]) appData["user1"] = { teachers: [] };
+                    appData["user1"].teachers = updated;
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                  }}>削除</Button>
+                </HStack>
+              </Box>
+            ))}
+          </HStack>
+        </Box>
       </Box>
-    </Box>
   );
 }

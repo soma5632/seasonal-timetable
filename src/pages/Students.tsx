@@ -619,82 +619,91 @@ export default function Students({ onNavigate }: StudentsProps) {
 
   // ---- 一覧＋新規登録フォーム ----
   return (
-    <Box p={4}>
-      <Heading size="md" mb={4}>生徒管理</Heading>
-      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
-          ホームに戻る
-       </Button>
+      <Box p={4}>
+        <Heading size="md" mb={4}>生徒管理</Heading>
 
-      {!showForm ? (
-        <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
-      ) : (
-        <VStack align="start" spacing={3} mt={2} mb={4}>
-          <Input
-            type="text"
-            placeholder="名前を入力"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            size="sm"
-          />
-          <Select value={newGrade} onChange={e => setNewGrade(e.target.value)} size="sm">
-            <option value="">学年を選択</option>
-            {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </Select>
-          <HStack>
-            <Button size="sm" onClick={() => {
-              if (!newName.trim() || !newGrade) return;
-              const newStudent: Student = {
-                id: Date.now(),
-                name: newName.trim(),
-                grade: newGrade,
-                subjects: [],
-                schedules: {},
-                ngTeachers: [],
-              };
-              const updated = [...students, newStudent];
-              setStudents(updated);
+        {/* ホームに戻る＋新規登録ボタンを縦並びに */}
+        <VStack align="start" spacing={2} mb={4}>
+          <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
+            ホームに戻る
+          </Button>
 
-              const raw = localStorage.getItem(STORAGE_KEY);
-              const appData = raw ? JSON.parse(raw) : {};
-              if (!appData["user1"]) appData["user1"] = { students: [] };
-              appData["user1"].students = updated;
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          {!showForm ? (
+            <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
+          ) : (
+            <VStack align="start" spacing={3} mt={2}>
+              <Input
+                type="text"
+                placeholder="名前を入力"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                size="sm"
+              />
+              <Select value={newGrade} onChange={e => setNewGrade(e.target.value)} size="sm">
+                <option value="">学年を選択</option>
+                {gradeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </Select>
+              <HStack>
+                <Button size="sm" onClick={() => {
+                  if (!newName.trim() || !newGrade) return;
+                  const newStudent: Student = {
+                    id: Date.now(),
+                    name: newName.trim(),
+                    grade: newGrade,
+                    subjects: [],
+                    schedules: {},
+                    ngTeachers: [],
+                  };
+                  const updated = [...students, newStudent];
+                  setStudents(updated);
 
-              setNewName("");
-              setNewGrade("");
-              setShowForm(false);
-            }}>登録</Button>
-            <Button size="sm" onClick={() => { setShowForm(false); setNewName(""); setNewGrade(""); }}>
-              キャンセル
-            </Button>
-          </HStack>
+                  const raw = localStorage.getItem(STORAGE_KEY);
+                  const appData = raw ? JSON.parse(raw) : {};
+                  if (!appData["user1"]) appData["user1"] = { students: [] };
+                  appData["user1"].students = updated;
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+
+                  setNewName("");
+                  setNewGrade("");
+                  setShowForm(false);
+                }}>登録</Button>
+                <Button size="sm" onClick={() => {
+                  setShowForm(false);
+                  setNewName("");
+                  setNewGrade("");
+                }}>
+                  キャンセル
+                </Button>
+              </HStack>
+            </VStack>
+          )}
         </VStack>
-      )}
+
         {/* 学年ごとの一覧表示 */}
-      {gradeOptions.map(grade => (
-        <Box key={grade} mt={6}>
-          <Heading size="sm" mb={2}>{grade}</Heading>
-          <HStack wrap="wrap" spacing={4}>
-            {students.filter(s => s.grade === grade).map(s => (
-              <Box
-                key={s.id}
-                borderWidth="1px"
-                borderRadius="md"
-                p={2}
-                w="200px"
-                bg="white"
-                boxShadow="sm"
-              >
-                <Text fontWeight="bold" mb={2} fontSize="sm">{s.name}（{s.grade}）</Text>
-                <HStack spacing={2}>
-                  <Button size="xs" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
-                  <Button size="xs" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
-                </HStack>
-              </Box>
-            ))}
-          </HStack>
-        </Box>
-      ))}
-    </Box>
+        {gradeOptions.map(grade => (
+          <Box key={grade} mt={6}>
+            <Heading size="sm" mb={2}>{grade}</Heading>
+            <HStack wrap="wrap" spacing={4}>
+              {students.filter(s => s.grade === grade).map(s => (
+                <Box
+                  key={s.id}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  p={2}
+                  w="200px"
+                  bg="white"
+                  boxShadow="sm"
+                >
+                  <Text fontWeight="bold" mb={2} fontSize="sm">{s.name}（{s.grade}）</Text>
+                  <HStack spacing={2}>
+                    <Button size="xs" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
+                    <Button size="xs" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
+                  </HStack>
+                </Box>
+              ))}
+            </HStack>
+          </Box>
+        ))}
+      </Box>
   );
 }
