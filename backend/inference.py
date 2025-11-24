@@ -331,25 +331,34 @@ def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
 
     return schedule_map
 """
-def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date):
+def add_days_skip_sunday(start_dt, offset_days):
     """
-    indexed_cells: [(rowcol, bbox, tag), ...]
-    rc_to_indices: dict mapping (row,col) -> list of rc
-    row_to_time: dict mapping row index -> 時限ラベル
-    start_date, end_date: "YYYY-MM-DD" 形式の文字列
+    start_dt: datetime (必ず月曜日)
+    offset_days: 月曜〜土曜だけを数えるインデックス
     """
+    days_added = 0
+    current_date = start_dt
+    while days_added < offset_days:
+        current_date += timedelta(days=1)
+        # 日曜日はスキップ
+        if current_date.weekday() == 6:  # 0=月曜, 6=日曜
+            continue
+        days_added += 1
+    return current_date
 
+def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
     rc_to_cell = {rc: (bbox, tag) for (rc, bbox, tag) in indexed_cells}
     schedule_map = []
 
-    # 日付セルを列インデックス順に処理
-    date_cells_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[1])  # col順で並べる
+    # 列インデックス順に処理
+    date_cells_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[1])
 
     for col_idx, date_rc in enumerate(date_cells_sorted):
-        target_date = start_dt + timedelta(days=col_idx)
+        # ★ col_idx を「月曜〜土曜だけのオフセット」として扱う
+        target_date = add_days_skip_sunday(start_dt, col_idx)
         if target_date > end_dt:
             break
 
@@ -361,7 +370,7 @@ def assign_dates(indexed_cells, rc_to_indices, row_to_time, start_date, end_date
             schedule_map.append({
                 "rc": rc,
                 "date": (target_date.month, target_date.day),
-                "time": row_to_time.get(rc[0]),  # 行番号から時限を取得
+                "time": row_to_time.get(rc[0]),
                 "bbox": bbox
             })
 
