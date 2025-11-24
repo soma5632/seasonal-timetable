@@ -253,84 +253,6 @@ def assign_indices(cells, row_tol=None, col_tol=None):
         indexed.append(((row, col), c["bbox"], c["tag"]))
     return indexed, row_centers, col_centers
 
-# --- OCR前処理 ---
-def preprocess(cell):
-    gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
-    _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
-    th = cv2.morphologyEx(th, cv2.MORPH_OPEN, kernel)
-    th = cv2.resize(th, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    return th
-
-# --- 数字正規化 ---
-def normalize_digits(text: str) -> str:
-    z2h = str.maketrans("０１２３４５６７８９", "0123456789")
-    t = text.translate(z2h)
-    replacements = {"｜": "1", "|": "1", "ｌ": "1", "l": "1", "f": "1", "上": "1",
-                    "{": "1", "｛": "1", "I": "1", "了": "7", "g": "8"}
-    for k, v in replacements.items():
-        t = t.replace(k, v)
-    return t
-
-# --- 日付抽出 ---
-def parse_month_day(text: str):
-    t = normalize_digits(text)
-    m = re.search(r'(\d+)\s+[一-龥]+(?:\s+[一-龥]+)?\s+(\d+)\s*[一-龥]+', t)
-    return (int(m.group(1)), int(m.group(2))) if m else None
-
-def ocr_date_cell(img, bbox):
-    x, y, w, h = bbox
-    cell = img[y:y+h, x:x+w]
-    th = preprocess(cell)
-    config = "-l jpn --psm 8"
-    text = pytesseract.image_to_string(
-        th,
-        lang="jpn",
-        config=config
-    ).strip()
-    print(f"[DEBUG] 素材そのままの日付：{text}")
-    return parse_month_day(text)
-
-"""
-def assign_dates(indexed_cells, rc_to_indices, image, row_to_time):
-    rc_to_cell = {rc: (bbox, tag) for (rc, bbox, tag) in indexed_cells}
-    schedule_map = []
-
-    # OCRで日付セルを抽出
-    date_rcs_sorted = sorted(rc_to_indices.keys(), key=lambda rc: rc[0])
-    md_list = []
-    for date_rc in date_rcs_sorted:
-        if date_rc not in rc_to_cell:
-            continue
-        bbox, tag = rc_to_cell[date_rc]
-        md = ocr_date_cell(image, bbox)  # (month, day) or None
-        if md:
-            md_list.append((date_rc[0], date_rc[1], md))
-
-    print(f"[DEBUG] 修正前の日付：{md_list}")
-
-    # 前方向補正
-    corrected = correct_days_forward(md_list)
-    # 後方向補正
-    corrected = correct_days_backward(corrected)
-
-    # schedule_map に展開
-    for (row, col), md in corrected:
-        print(f"[DEBUG] 修正後の日付：{md}")
-        target_rcs = rc_to_indices.get((row, col), [])
-        for rc in target_rcs:
-            if rc not in rc_to_cell:
-                continue
-            bbox, tag = rc_to_cell[rc]
-            schedule_map.append({
-                "rc": rc,
-                "date": md,
-                "time": row_to_time.get(rc[0]),
-                "bbox": bbox
-            })
-
-    return schedule_map
-"""
 def add_days_skip_sunday(start_dt, offset_days):
     """
     start_dt: datetime (必ず月曜日)
@@ -346,24 +268,30 @@ def add_days_skip_sunday(start_dt, offset_days):
         days_added += 1
     return current_date
 
-def assign_dates(indexed_cells,  rc_to_indices, row_to_time, start_date, end_date):
+def assign_dates(indexed_cells, row_to_time, start_date, end_date):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
     schedule_map = []
 
-    for (row, col), bbox, tag in indexed_cells:
-        # 列番号 col をそのまま日付オフセットに使う
+    # 列ごとにまとめる
+    cols = sorted(set(col for (_, col), _, _ in indexed_cells))
+
+    for col in cols:
         target_date = add_days_skip_sunday(start_dt, col - 1)
         if target_date > end_dt:
             continue
 
-        schedule_map.append({
-            "rc": (row, col),
-            "date": (target_date.month, target_date.day),
-            "time": row_to_time.get(row),
-            "bbox": bbox
-        })
+        # この列に属するセルをまとめて処理
+        for (row, c), bbox, tag in indexed_cells:
+            if c != col:
+                continue
+            schedule_map.append({
+                "rc": (row, col),
+                "date": (target_date.month, target_date.day),
+                "time": row_to_time.get(row, ""),
+                "bbox": bbox
+            })
 
     return schedule_map
 
@@ -400,34 +328,6 @@ def extract_features(img, size=(32,32)):
                cells_per_block=(2,2), block_norm='L2-Hys')
     return feat
 
-
-"""
-# --- メイン推論関数 ---
-def run_inference(image_path):
-    image = cv2.imread(image_path)
-    if image is None:
-        raise FileNotFoundError(f"画像が読み込めませんでした: {os.path.abspath(image_path)}")
-    clf = joblib.load("svm_model (1).pkl")
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(~gray, 255,
-                                   cv2.ADAPTIVE_THRESH_MEAN_C,
-                                   cv2.THRESH_BINARY, 15, -2)
-    roi = auto_table_warp(image, thresh)
-    mask = extract_grid(roi)
-    cells = extract_cells(roi, mask)
-    classified_cells = classify_cell(cells)
-    indexed_cells, _, _ = assign_indices(classified_cells)
-    schedule_map = assign_dates(indexed_cells, rc_to_indices, roi, row_to_time)
-
-    for i, cell in enumerate(schedule_map):
-        x, y, w, h = cell['bbox']
-        roi_cell = cv2.cvtColor(roi[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
-        feat = extract_features(roi_cell)
-        pred = clf.predict([feat])[0]
-        schedule_map[i]['tag'] = str(pred)
-
-    return schedule_map
-"""
 def run_inference(image_path, start_date, end_date):
     """
     image_path: アップロードされた画像ファイルのパス
@@ -459,8 +359,7 @@ def run_inference(image_path, start_date, end_date):
     indexed_cells, _, _ = assign_indices(classified_cells)
 
     # ★ ターム期間ベースで日付割り当て
-    schedule_map = assign_dates(indexed_cells, rc_to_indices, row_to_time,
-                                start_date, end_date)
+    schedule_map = assign_dates(indexed_cells, row_to_time, start_date, end_date)
 
     # 各セルの特徴抽出＋SVM分類
     for i, cell in enumerate(schedule_map):
