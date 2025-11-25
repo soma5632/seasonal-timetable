@@ -72,13 +72,12 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
-    useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+  useEffect(() => {
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     if (raw) {
       try {
-        const parsed = JSON.parse(raw);
-        const userData = parsed["user1"];
-        if (userData && userData.terms) {
+        const userData = JSON.parse(raw);
+        if (userData.terms) {
           const termList = Object.entries(userData.terms)
             .filter(([_, v]) => v !== null)
             .map(([id, v]: any) => ({
@@ -90,14 +89,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
             }));
           setTerms(termList);
         }
-        if (userData && userData.teachers) {
+        if (userData.teachers) {
           setTeachers(userData.teachers);
         }
       } catch (e) {
         console.error("データ読み込み失敗:", e);
       }
     }
-  }, []);
+  }, [currentUserId]);
   // ---- 授業可能科目 ----
   const addPossibleSubject = () => {
     if (!selectedTeacher || !newPossibleSubject) return;
@@ -109,11 +108,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-    appData["user1"].teachers = newTeachers;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.teachers = newTeachers;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
     setNewPossibleSubject("");
   };
@@ -128,11 +126,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-    appData["user1"].teachers = newTeachers;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.teachers = newTeachers;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
 
   // ---- NG生徒 ----
@@ -146,11 +143,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-    appData["user1"].teachers = newTeachers;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.teachers = newTeachers;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
     setNewNgStudent("");
   };
@@ -165,11 +161,11 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-    appData["user1"].teachers = newTeachers;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.teachers = newTeachers;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+
   };
   // ---- Camera ----
   const startCamera = async () => {
@@ -402,11 +398,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     const appData = raw ? JSON.parse(raw) : {};
-    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-    appData["user1"].teachers = newTeachers;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    appData.teachers = newTeachers;
+    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
   };
 
   useEffect(() => {
@@ -628,11 +623,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                   const updated = [...teachers, newTeacher];
                   setTeachers(updated);
 
-                  const raw = localStorage.getItem(STORAGE_KEY);
+                  const raw = localStorage.getItem(`user_${currentUserId}`);
                   const appData = raw ? JSON.parse(raw) : {};
-                  if (!appData["user1"]) appData["user1"] = { teachers: [] };
-                  appData["user1"].teachers = updated;
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                  appData.teachers = updated;
+                  localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
                   setNewName("");
                   setShowForm(false);
@@ -670,11 +664,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                     const updated = teachers.filter(x => x.id !== t.id);
                     setTeachers(updated);
 
-                    const raw = localStorage.getItem(STORAGE_KEY);
+                    const raw = localStorage.getItem(`user_${currentUserId}`);
                     const appData = raw ? JSON.parse(raw) : {};
-                    if (!appData["user1"]) appData["user1"] = { teachers: [] };
-                    appData["user1"].teachers = updated;
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                    appData.teachers = updated;
+                    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
                   }}>削除</Button>
                 </HStack>
               </Box>

@@ -192,11 +192,10 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
   const applyingSavedRef = useRef(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(`user_${currentUserId}`);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        const userData = parsed["user1"];
+        const userData = JSON.parse(saved);
         if (userData) {
           setTimetable(userData.timetable || {});
           setClosedDays(userData.closedDays || []);
@@ -218,14 +217,13 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
         setStudentOptions([...new Set(names)]);
       }
     } catch {}
-  }, []);
+  }, [currentUserId]);
 
   // ★ 初期表示時に前回選んだタームとその内容をロード
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`user_${currentUserId}`);
     if (raw) {
-      const appData = JSON.parse(raw);
-      const userData = appData["user1"];
+      const userData = JSON.parse(raw);
       if (userData && userData.lastSelectedTermName) {
         const last = userData.lastSelectedTermName as TermPreset;
         const saved = userData.terms?.[last];
@@ -244,16 +242,15 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
         applyingSavedRef.current = false;
       }
     }
-  }, []);
+  }, [currentUserId]);
 
   // ★ ターム選択変更時に保存済み内容をロード
   useEffect(() => {
     if (!termName) return;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(`user_${currentUserId}`);
       if (!raw) return;
-      const appData = JSON.parse(raw);
-      const userData = appData["user1"];
+      const userData = JSON.parse(raw);
       if (!userData) return;
 
       const saved = userData.terms?.[termName];
@@ -462,34 +459,30 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
                   termName,
                   startDate: startDateTerm,
                   endDate: endDateTerm,
-                  closedSlots: closedSlotsByDate, // ★ 閉校スロットも保存
+                  closedSlots: closedSlotsByDate,
                 };
 
                 try {
-                  const userId = "user1"; // 仮のユーザーID（将来ログイン機能で置き換え）
-
-                  const raw = localStorage.getItem(STORAGE_KEY);
+                  const raw = localStorage.getItem(`user_${currentUserId}`);
                   const appData = raw ? JSON.parse(raw) : {};
 
-                  if (!appData[userId]) {
-                    appData[userId] = {
-                      terms: {
-                        "第1ターム": null,
-                        "第2ターム": null,
-                        "第3ターム": null,
-                        "第4ターム": null,
-                      },
-                      lastSelectedTermName: null,
+                  if (!appData.terms) {
+                    appData.terms = {
+                      "第1ターム": null,
+                      "第2ターム": null,
+                      "第3ターム": null,
+                      "第4ターム": null,
                     };
+                    appData.lastSelectedTermName = null;
                   }
 
                   // ターム情報を保存
-                  appData[userId].terms[termName] = payload;
+                  appData.terms[termName] = payload;
 
-                  // ユーザーごとに最後に選んだタームを記憶
-                  appData[userId].lastSelectedTermName = termName;
+                  // 最後に選んだタームを記憶
+                  appData.lastSelectedTermName = termName;
 
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                  localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
 
                   toast({
                     title: "保存しました",
