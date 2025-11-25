@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Box, Heading, Text, Button, VStack, HStack, Input, Select,
-  Table, Thead, Tbody, Tr, Th, Td
+  Table, Thead, Tbody, Tr, Th, Td, Accordion, AccordionItem, AccordionButton, AccordionPanel,
 } from "@chakra-ui/react";
 import { useUserData } from "../hooks/useUserData";
 
@@ -50,6 +50,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGrade, setNewGrade] = useState("");
+  const [search, setSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   // 科目＋回数
@@ -647,31 +648,57 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
           )}
         </VStack>
 
-        {/* 学年ごとの一覧表示 */}
-        {gradeOptions.map(grade => (
-          <Box key={grade} mt={6}>
-            <Heading size="sm" mb={2}>{grade}</Heading>
-            <HStack wrap="wrap" spacing={4}>
-              {students.filter(s => s.grade === grade).map(s => (
-                <Box
-                  key={s.id}
-                  borderWidth="1px"
-                  borderRadius="md"
-                  p={2}
-                  w="200px"
-                  bg="white"
-                  boxShadow="sm"
-                >
-                  <Text fontWeight="bold" mb={2} fontSize="sm">{s.name}（{s.grade}）</Text>
-                  <HStack spacing={2}>
-                    <Button size="xs" onClick={() => setSelectedStudent(s)}>詳細を見る</Button>
-                    <Button size="xs" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
+        {/* 🔍 検索バー */}
+        <Input
+          placeholder="名前で検索"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          mb={4}
+        />
+
+        {/* 📂 学年ごとのアコーディオン */}
+        <Accordion allowMultiple>
+          {gradeOptions.map(grade => {
+            const gradeStudents = students
+              .filter(s => s.grade === grade && s.name.includes(search));
+
+            if (gradeStudents.length === 0) return null;
+
+            return (
+              <AccordionItem key={grade}>
+                <AccordionButton>
+                  <Box flex="1" textAlign="left">
+                    {grade}（{gradeStudents.length}人）
+                  </Box>
+                </AccordionButton>
+                <AccordionPanel>
+                  {/* 🟦 グリッド表示（2列カード） */}
+                  <HStack wrap="wrap" spacing={4}>
+                    {gradeStudents.map(s => (
+                      <Box
+                        key={s.id}
+                        borderWidth="1px"
+                        borderRadius="md"
+                        p={2}
+                        w="45%" // ←スマホで2列に並ぶ
+                        bg="white"
+                        boxShadow="sm"
+                      >
+                        <Text fontWeight="bold" mb={2} fontSize="sm">
+                          {s.name}（{s.grade}）
+                        </Text>
+                        <HStack spacing={2}>
+                          <Button size="xs" onClick={() => setSelectedStudent(s)}>詳細</Button>
+                          <Button size="xs" colorScheme="red" onClick={() => handleDeleteStudent(s.id)}>削除</Button>
+                        </HStack>
+                      </Box>
+                    ))}
                   </HStack>
-                </Box>
-              ))}
-            </HStack>
-          </Box>
-        ))}
+                </AccordionPanel>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
       </Box>
   );
 }
