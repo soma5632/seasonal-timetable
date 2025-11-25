@@ -22,6 +22,8 @@ import {
 import WeeklySchedule from "../components/WeeklySchedule";
 import EditLessonModal from "../components/EditLessonModal";
 import StudentSchedule from "../components/StudentSchedule";
+import { useUserData } from "../hooks/useUserData";
+
 
 // ===== 既存領域 =====
 export type Lesson = {
@@ -173,6 +175,7 @@ type TimetableManagerProps = {
 export default function TimetableManager({ onNavigate, currentUserId }: TimetableManagerProps) {  const toast = useToast();
 
   // 既存の週ビュー state
+  const { userData, saveUserData } = useUserData(currentUserId);
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
   const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]);
@@ -189,30 +192,26 @@ export default function TimetableManager({ onNavigate, currentUserId }: Timetabl
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setTimetable(parsed.timetable || {});
-        setClosedDays(parsed.closedDays || []);
-        setClosedSlotsLegacy(parsed.closedSlots || {});
-      } catch {}
-    }
-    try {
-      const tRaw = localStorage.getItem("teachers");
-      if (tRaw) {
-        const t = JSON.parse(tRaw);
-        const names = Array.isArray(t) ? t.map((x: any) => x?.name).filter(Boolean) : [];
-        setTeacherOptions([...new Set(names)]);
+      if (userData) {
+        setTimetable(userData.timetable || {});
+        setClosedDays(userData.closedDays || []);
+        setClosedSlotsLegacy(userData.closedSlots || {});
+
+        if (userData.teachers) {
+          const names: string[] = (userData.teachers ?? [])
+            .map((x: any) => x?.name)
+            .filter((n: string): n is string => !!n);
+          setTeacherOptions(Array.from(new Set(names)));
+        }
+
+        if (userData.students) {
+          const names: string[] = (userData.students ?? [])
+            .map((x: any) => x?.name)
+            .filter((n: string): n is string => !!n);
+          setStudentOptions(Array.from(new Set(names)));
+        }
       }
-      const sRaw = localStorage.getItem("students");
-      if (sRaw) {
-        const s = JSON.parse(sRaw);
-        const names = Array.isArray(s) ? s.map((x: any) => x?.name).filter(Boolean) : [];
-        setStudentOptions([...new Set(names)]);
-      }
-    } catch {}
-  }, []);
+  }, [userData]);
 
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
@@ -426,37 +425,44 @@ export default function TimetableManager({ onNavigate, currentUserId }: Timetabl
       {/* まとめて保存ボタン */}
       {dateRangeValid && weekBlocks.length > 0 && (
         <Box mt={6}>
-          <Button
-            colorScheme="blue"
-            onClick={() => {
-              const payload = {
-                termName,
-                startDate: startDateTerm,
-                endDate: endDateTerm,
-                closedSlots: closedSlotsByDate,
-              };
-              try {
-                localStorage.setItem("timetable-term", JSON.stringify(payload));
-                toast({
-                  title: "保存しました",
-                  description: "タームスケジュールを保存しました。",
-                  status: "success",
-                  duration: 3000,
-                  isClosable: true,
-                });
-              } catch (e) {
-                toast({
-                  title: "保存失敗",
-                  description: "保存時にエラーが発生しました。",
-                  status: "error",
-                  duration: 3000,
-                  isClosable: true,
-                });
-              }
-            }}
-          >
-            まとめて保存
-          </Button>
+            <Button
+              colorScheme="blue"
+              onClick={() => {
+                const payload = {
+                  termName,
+                  startDate: startDateTerm,
+                  endDate: endDateTerm,
+                  closedSlots: closedSlotsByDate,
+                };
+                try {
+                  saveUserData({
+                    terms: {
+                      ...(userData?.terms || {}),
+                      [termName]: payload,
+                    },
+                    lastSelectedTermName: termName,
+                  });
+
+                  toast({
+                    title: "保存しました",
+                    description: "タームスケジュールを保存しました。",
+                    status: "success",
+                    duration: 3000,
+                    isClosable: true,
+                  });
+                } catch (e) {
+                  toast({
+                    title: "保存失敗",
+                    description: "保存時にエラーが発生しました。",
+                    status: "error",
+                    duration: 3000,
+                    isClosable: true,
+                  });
+                }
+              }}
+            >
+              まとめて保存
+            </Button>
         </Box>
       )}
 

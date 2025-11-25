@@ -3,6 +3,7 @@ import {
   Box, Heading, Text, Button, VStack, HStack, Input, Select,
   Table, Thead, Tbody, Tr, Th, Td
 } from "@chakra-ui/react";
+import { useUserData } from "../hooks/useUserData";
 
 type ScheduleItem = {
   date: [number, number]; // (month, day)
@@ -41,6 +42,7 @@ const TAG_STYLE: Record<string, { symbol: string; color: string; bg: string }> =
 
 const STORAGE_KEY = "app-data";
 export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
+  const { userData, saveUserData } = useUserData(currentUserId);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -73,10 +75,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
   useEffect(() => {
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    if (raw) {
-      try {
-        const userData = JSON.parse(raw);
+      if (userData) {
         if (userData.terms) {
           const termList = Object.entries(userData.terms)
             .filter(([_, v]) => v !== null)
@@ -92,81 +91,74 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         if (userData.teachers) {
           setTeachers(userData.teachers);
         }
-      } catch (e) {
-        console.error("データ読み込み失敗:", e);
       }
-    }
-  }, [currentUserId]);
+  }, [userData]);
+
   // ---- 授業可能科目 ----
   const addPossibleSubject = () => {
-    if (!selectedTeacher || !newPossibleSubject) return;
-    const updated = {
-      ...selectedTeacher,
-      possibleSubjects: [...selectedTeacher.possibleSubjects, newPossibleSubject],
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
+      if (!selectedTeacher || !newPossibleSubject) return;
 
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    const appData = raw ? JSON.parse(raw) : {};
-    appData.teachers = newTeachers;
-    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+      // 先生データを更新
+      const updated = {
+        ...selectedTeacher,
+        possibleSubjects: [...selectedTeacher.possibleSubjects, newPossibleSubject],
+      };
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
 
-    setNewPossibleSubject("");
+      // ★ localStorageではなく saveUserData() を呼ぶ
+      saveUserData({ teachers: newTeachers });
+
+      // 入力欄をクリア
+      setNewPossibleSubject("");
   };
 
   const removePossibleSubject = (idx: number) => {
-    if (!selectedTeacher) return;
-    const updated = {
-      ...selectedTeacher,
-      possibleSubjects: selectedTeacher.possibleSubjects.filter((_, i) => i !== idx),
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
+      if (!selectedTeacher) return;
+      const updated = {
+        ...selectedTeacher,
+        possibleSubjects: selectedTeacher.possibleSubjects.filter((_, i) => i !== idx),
+      };
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    const appData = raw ? JSON.parse(raw) : {};
-    appData.teachers = newTeachers;
-    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+      // ★ localStorageではなく saveUserData()
+      saveUserData({ teachers: newTeachers });
   };
 
   // ---- NG生徒 ----
   const addNgStudent = () => {
-    if (!selectedTeacher || !newNgStudent.trim()) return;
-    const updated = {
-      ...selectedTeacher,
-      ngStudents: [...selectedTeacher.ngStudents, newNgStudent.trim()],
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
+      if (!selectedTeacher || !newNgStudent.trim()) return;
+      const updated = {
+        ...selectedTeacher,
+        ngStudents: [...selectedTeacher.ngStudents, newNgStudent.trim()],
+      };
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    const appData = raw ? JSON.parse(raw) : {};
-    appData.teachers = newTeachers;
-    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+      // ★ localStorageではなく saveUserData()
+      saveUserData({ teachers: newTeachers });
 
-    setNewNgStudent("");
+      setNewNgStudent("");
   };
 
   const removeNgStudent = (idx: number) => {
-    if (!selectedTeacher) return;
-    const updated = {
-      ...selectedTeacher,
-      ngStudents: selectedTeacher.ngStudents.filter((_, i) => i !== idx),
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
+      if (!selectedTeacher) return;
+      const updated = {
+        ...selectedTeacher,
+        ngStudents: selectedTeacher.ngStudents.filter((_, i) => i !== idx),
+      };
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    const appData = raw ? JSON.parse(raw) : {};
-    appData.teachers = newTeachers;
-    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
-
+      // ★ localStorageではなく saveUserData()
+      saveUserData({ teachers: newTeachers });
   };
+
   // ---- Camera ----
   const startCamera = async () => {
     try {
@@ -398,10 +390,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    const appData = raw ? JSON.parse(raw) : {};
-    appData.teachers = newTeachers;
-    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+    saveUserData({ teachers: updated });
   };
 
   useEffect(() => {
@@ -623,10 +612,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                   const updated = [...teachers, newTeacher];
                   setTeachers(updated);
 
-                  const raw = localStorage.getItem(`user_${currentUserId}`);
-                  const appData = raw ? JSON.parse(raw) : {};
-                  appData.teachers = updated;
-                  localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+                  saveUserData({ teachers: updated });
 
                   setNewName("");
                   setShowForm(false);
@@ -664,10 +650,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                     const updated = teachers.filter(x => x.id !== t.id);
                     setTeachers(updated);
 
-                    const raw = localStorage.getItem(`user_${currentUserId}`);
-                    const appData = raw ? JSON.parse(raw) : {};
-                    appData.teachers = updated;
-                    localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+                    saveUserData({ teachers: updated });
                   }}>削除</Button>
                 </HStack>
               </Box>

@@ -4,17 +4,36 @@ from inference import run_inference
 import os
 from PIL import Image
 import math
+import json
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://souma-lab.com"]}})
 
+# ===== ユーザデータ保存・取得用ヘルパー =====
+def get_user_data_path(user_id):
+    os.makedirs("userdata", exist_ok=True)
+    return os.path.join("userdata", f"{user_id}.json")
+
+def save_user_data(user_id, data):
+    path = get_user_data_path(user_id)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_user_data(user_id):
+    path = get_user_data_path(user_id)
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+# ===== 推定API =====
 @app.route("/schedule/upload", methods=["POST"])
 def upload_schedule():
     try:
         file = request.files.get("file")
         student_id = request.form.get("student_id")
-        start_date = request.form.get("start_date")  # ★ 追加
-        end_date = request.form.get("end_date")      # ★ 追加
+        start_date = request.form.get("start_date")
+        end_date = request.form.get("end_date")
 
         if not file:
             return jsonify({"error": "No file uploaded"}), 400
@@ -45,7 +64,7 @@ def upload_schedule():
 
         print(f"[DEBUG] Cropped image saved at {filepath}")
 
-        # ★ 推定処理（ターム期間を渡す）
+        # 推定処理
         schedule_map = run_inference(filepath, start_date, end_date)
         print(f"[DEBUG] Inference result: {schedule_map}")
 
@@ -61,5 +80,33 @@ def upload_schedule():
         print(f"[ERROR] {e}")
         return jsonify({"error": str(e)}), 500
 
+# ===== ユーザデータ保存API =====
+@app.route("/userdata/save", methods=["POST"])
+def save_userdata():
+    try:
+        body = request.get_json()
+        user_id = body.get("userId")
+        if not user_id:
+            return jsonify({"error": "Missing userId"}), 400
+        save_user_data(user_id, body)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        print(f"[ERROR] /userdata/save: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ===== ユーザデータ取得API =====
+@app.route("/userdata/load", methods=["GET"])
+def load_userdata():
+    try:
+        user_id = request.args.get("userId")
+        if not user_id:
+            return jsonify({"error": "Missing userId"}), 400
+        data = load_user_data(user_id)
+        return jsonify(data)
+    except Exception as e:
+        print(f"[ERROR] /userdata/load: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ===== 起動 =====
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

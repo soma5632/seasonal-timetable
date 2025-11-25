@@ -18,6 +18,7 @@ import {
   Th,
   Td,
 } from "@chakra-ui/react";
+import { useUserData } from "../hooks/useUserData";
 
 // ===== 型定義 =====
 export type Lesson = {
@@ -171,6 +172,7 @@ type TermManagerProps = {
 export default function TermManager({ onNavigate, currentUserId }: TermManagerProps) {  const toast = useToast();
 
   // state
+  const { userData, saveUserData } = useUserData(currentUserId);
   const [baseDate, setBaseDate] = useState<string>(() => toDateString(new Date()));
   const monday = useMemo(() => startOfWeekMonday(parseDate(baseDate)), [baseDate]);
   const dates = useMemo(() => generate1WeekMonToSat(monday), [monday]);
@@ -192,38 +194,30 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
   const applyingSavedRef = useRef(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`user_${currentUserId}`);
-    if (saved) {
-      try {
-        const userData = JSON.parse(saved);
-        if (userData) {
-          setTimetable(userData.timetable || {});
-          setClosedDays(userData.closedDays || []);
-          setClosedSlotsLegacy(userData.closedSlots || {});
+      if (userData) {
+        setTimetable(userData.timetable || {});
+        setClosedDays(userData.closedDays || []);
+        setClosedSlotsLegacy(userData.closedSlots || {});
+
+        // teachers / students も userData から取得するように変更
+        if (userData.teachers) {
+          const names: string[] = (userData.teachers ?? [])
+            .map((x: any) => x?.name)
+            .filter((n: string): n is string => !!n);
+          setTeacherOptions(Array.from(new Set(names)));
         }
-      } catch {}
-    }
-    try {
-      const tRaw = localStorage.getItem("teachers");
-      if (tRaw) {
-        const t = JSON.parse(tRaw);
-        const names = Array.isArray(t) ? t.map((x: any) => x?.name).filter(Boolean) : [];
-        setTeacherOptions([...new Set(names)]);
+
+        if (userData.students) {
+          const names: string[] = (userData.students ?? [])
+            .map((x: any) => x?.name)
+            .filter((n: string): n is string => !!n);
+          setStudentOptions(Array.from(new Set(names)));
+        }
       }
-      const sRaw = localStorage.getItem("students");
-      if (sRaw) {
-        const s = JSON.parse(sRaw);
-        const names = Array.isArray(s) ? s.map((x: any) => x?.name).filter(Boolean) : [];
-        setStudentOptions([...new Set(names)]);
-      }
-    } catch {}
-  }, [currentUserId]);
+  }, [userData]);
 
   // ★ 初期表示時に前回選んだタームとその内容をロード
   useEffect(() => {
-    const raw = localStorage.getItem(`user_${currentUserId}`);
-    if (raw) {
-      const userData = JSON.parse(raw);
       if (userData && userData.lastSelectedTermName) {
         const last = userData.lastSelectedTermName as TermPreset;
         const saved = userData.terms?.[last];
@@ -241,17 +235,11 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
         }
         applyingSavedRef.current = false;
       }
-    }
-  }, [currentUserId]);
+  }, [userData]);
 
   // ★ ターム選択変更時に保存済み内容をロード
   useEffect(() => {
-    if (!termName) return;
-    try {
-      const raw = localStorage.getItem(`user_${currentUserId}`);
-      if (!raw) return;
-      const userData = JSON.parse(raw);
-      if (!userData) return;
+      if (!termName || !userData) return;
 
       const saved = userData.terms?.[termName];
 
@@ -266,12 +254,7 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
         setClosedSlotsByDate({});
       }
       applyingSavedRef.current = false;
-    } catch {
-      setStartDateTerm("");
-      setEndDateTerm("");
-      setClosedSlotsByDate({});
-    }
-  }, [termName]);
+  }, [termName, userData]);
 
   const schedules: Schedule[] = dates.map((date) => {
     const lessons: Lesson[] = [];
@@ -463,26 +446,13 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
                 };
 
                 try {
-                  const raw = localStorage.getItem(`user_${currentUserId}`);
-                  const appData = raw ? JSON.parse(raw) : {};
-
-                  if (!appData.terms) {
-                    appData.terms = {
-                      "第1ターム": null,
-                      "第2ターム": null,
-                      "第3ターム": null,
-                      "第4ターム": null,
-                    };
-                    appData.lastSelectedTermName = null;
-                  }
-
-                  // ターム情報を保存
-                  appData.terms[termName] = payload;
-
-                  // 最後に選んだタームを記憶
-                  appData.lastSelectedTermName = termName;
-
-                  localStorage.setItem(`user_${currentUserId}`, JSON.stringify(appData));
+                  saveUserData({
+                    terms: {
+                      ...(userData?.terms || {}),
+                      [termName]: payload,
+                    },
+                    lastSelectedTermName: termName,
+                  });
 
                   toast({
                     title: "保存しました",
