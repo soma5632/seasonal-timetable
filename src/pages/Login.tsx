@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Heading, Input, Button, Text } from "@chakra-ui/react";
+import { useUserData } from "../hooks/useUserData";
 
 type LoginProps = {
   onLogin: (id: string) => void;
@@ -15,20 +16,28 @@ export default function Login({ onLogin, onNavigate }: LoginProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // ★ userId をキーにして userData を取得
+  const { userData } = useUserData(userId);
+
   const handleLogin = () => {
     const trimmedId = userId.trim();
-    const authRaw = localStorage.getItem(`user_${trimmedId}_auth`);
-    if (!authRaw) {
+    if (!trimmedId || !password) {
+      setError("ユーザIDとパスワードを入力してください");
+      return;
+    }
+
+    // ★ userData.auth を利用して認証
+    if (!userData || !userData.auth) {
       setError("ユーザが存在しません。サインアップしてください。");
       return;
     }
-    const auth = JSON.parse(authRaw);
-    if (auth.password !== password) {
+
+    if (userData.auth.password !== password) {
       setError("パスワードが違います");
       return;
     }
 
-    localStorage.setItem("currentUserId", trimmedId);
+    // ★ 認証成功時
     onLogin(trimmedId);
     onNavigate("home");
   };
@@ -36,11 +45,24 @@ export default function Login({ onLogin, onNavigate }: LoginProps) {
   return (
     <Box p={4}>
       <Heading size="md" mb={4}>ログイン</Heading>
-      <Input placeholder="ユーザID" value={userId} onChange={e => setUserId(e.target.value)} mb={2} />
-      <Input type="password" placeholder="パスワード" value={password} onChange={e => setPassword(e.target.value)} mb={2} />
+      <Input
+        placeholder="ユーザID"
+        value={userId}
+        onChange={e => setUserId(e.target.value)}
+        mb={2}
+      />
+      <Input
+        type="password"
+        placeholder="パスワード"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        mb={2}
+      />
       {error && <Text color="red.500" fontSize="sm">{error}</Text>}
       <Button colorScheme="teal" onClick={handleLogin}>ログイン</Button>
-      <Button variant="link" mt={2} onClick={() => onNavigate("signup")}>新規登録はこちら</Button>
+      <Button variant="link" mt={2} onClick={() => onNavigate("signup")}>
+        新規登録はこちら
+      </Button>
     </Box>
   );
 }
