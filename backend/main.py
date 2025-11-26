@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from inference import run_inference
+from timetable.generator import generate_teacher_blocks, assign_students_to_blocks, assign_booths
 import os
 from PIL import Image
 import math
@@ -78,6 +79,71 @@ def upload_schedule():
 
     except Exception as e:
         print(f"[ERROR] {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ===== 時間割生成 =====
+@app.route("/timetable/generate", methods=["POST"])
+def generate_timetable():
+    try:
+        body = request.get_json()
+        user_id = body.get("userId")
+        if not user_id:
+            return jsonify({"error": "Missing userId"}), 400
+
+        # ユーザデータを取得
+        user_data = load_user_data(user_id)
+        teachers = user_data.get("teachers", [])
+        terms = user_data.get("terms", {})
+        students = user_data.get("students", [])
+
+        # 先生の出勤枠
+        teacher_availability = {}
+        for t in teachers:
+            teacher_id = t.get("id")
+            schedule = t.get("schedules", {})
+            teacher_availability[teacher_id] = {}
+            for term_id, term_schedule in schedule.items():
+                for date_iso, slots in term_schedule.items():
+                    teacher_availability[teacher_id].setdefault(date_iso, [None]*10)
+                    for slot_idx, tag in slots.items():
+                        teacher_availability[teacher_id][date_iso][int(slot_idx)] = tag
+
+        # 生徒の出勤枠
+        student_availability = {}
+        for s in students:
+            sid = s.get("id")
+            schedule = s.get("schedules", {})
+            student_availability[sid] = {}
+            for term_id, term_schedule in schedule.items():
+                for date_iso, slots in term_schedule.items():
+                    student_availability[sid].setdefault(date_iso, {})
+                    for slot_idx, tag in slots.items():
+                        student_availability[sid][date_iso][str(slot_idx)] = tag
+
+        # NG関係
+        ng_pairs = set()
+        for t in teachers:
+            tid = t.get("id")
+            for ng in t.get("ngStudents", []):
+                ng_pairs.add((tid, ng))
+        for s in students:
+            sid = s.get("id")
+            for ng in s.get("ngTeachers", []):
+                ng_pairs.add((ng, sid))
+
+        # フェーズA〜C
+        teacher_blocks = generate_teacher_blocks(teacher_availability)
+        lessons = assign_students_to_blocks(teacher_blocks, students, student_availability, ng_pairs)
+        final_lessons = assign_booths(lessons)
+
+        return jsonify({
+            "status": "ok",
+            "teacherBlocks": teacher_blocks,
+            "finalLessons": final_lessons
+        })
+
+    except Exception as e:
+        print(f"[ERROR] /timetable/generate: {e}")
         return jsonify({"error": str(e)}), 500
 
 # ===== ユーザデータ保存API =====
