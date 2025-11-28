@@ -96,6 +96,11 @@ def generate_timetable():
         terms = user_data.get("terms", {})
         students = user_data.get("students", [])
 
+        if isinstance(teachers, dict):
+            teachers = list(teachers.values())
+        if isinstance(students, dict):
+            students = list(students.values())
+
         # 先生の出勤枠
         teacher_availability = {}
         for t in teachers:
@@ -168,6 +173,15 @@ def load_userdata():
         if not user_id:
             return jsonify({"error": "Missing userId"}), 400
         data = load_user_data(user_id)
+
+        # 正規化（teachers/students が dict でも配列で返す）
+        t = data.get("teachers", [])
+        s = data.get("students", [])
+        if isinstance(t, dict):
+            data["teachers"] = list(t.values())
+        if isinstance(s, dict):
+            data["students"] = list(s.values())
+
         return jsonify(data)
     except Exception as e:
         print(f"[ERROR] /userdata/load: {e}")
