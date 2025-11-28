@@ -390,7 +390,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
-    saveUserData({ teachers: updated });
+    saveUserData({ teachers: newTeachers });
   };
 
   useEffect(() => {
@@ -650,7 +650,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                     const updated = teachers.filter(x => x.id !== t.id);
                     setTeachers(updated);
 
-                    saveUserData({ teachers: newTeachers });
+                    saveUserData({ teachers: updated });
                   }}>削除</Button>
                 </HStack>
               </Box>
