@@ -334,61 +334,69 @@ export default function TimetableManager({ onNavigate, currentUserId }: Timetabl
 
   // API呼び出し：生成
   async function generateTimetable() {
-    if (!selectedTermName || !termStartISO || !termEndISO) {
-      toast({
-        title: "ターム未選択",
-        description: "タームを選択し、期間が正しく設定されているか確認してください。",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch("https://api.souma-lab.com/timetable/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUserId,
-          termName: selectedTermName,
-          options: {
-            allowPairLessons,
-            preferElementaryMorning,
-            preferJuniorLunch,
-            earlyTermWeight,
-            balanceWeight,
-          },
-        }),
-      });
-      const data = await res.json();
-
-      if (data.error) {
-        throw new Error(data.error);
+      if (!selectedTermName || !termStartISO || !termEndISO) {
+        toast({
+          title: "ターム未選択",
+          description: "タームを選択し、期間が正しく設定されているか確認してください。",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
       }
-      const finalLessons: FinalLesson[] = data.finalLessons ?? [];
-      const preview = lessonsToTimetable(finalLessons);
-      setTimetablePreview(preview);
 
-      toast({
-        title: "生成完了",
-        description: "時間割の生成が完了しました。プレビューで確認・編集できます。",
-        status: "success",
-        duration: 2500,
-        isClosable: true,
-      });
-    } catch (e: any) {
-      toast({
-        title: "生成失敗",
-        description: e?.message || "生成時にエラーが発生しました。",
-        status: "error",
-        duration: 3500,
-        isClosable: true,
-      });
-    } finally {
-      setLoading(false);
-    }
+      setLoading(true);
+      try {
+        const res = await fetch("https://api.souma-lab.com/timetable/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: currentUserId,
+            termName: selectedTermName,
+            options: {
+              allowPairLessons,
+              preferElementaryMorning,
+              preferJuniorLunch,
+              earlyTermWeight,
+              balanceWeight,
+            },
+          }),
+        });
+
+        // 👇 ここでステータスチェックを追加
+        if (!res.ok) {
+          const text = await res.text(); // サーバーからのエラーメッセージを取得
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const finalLessons: FinalLesson[] = data.finalLessons ?? [];
+        const preview = lessonsToTimetable(finalLessons);
+        setTimetablePreview(preview);
+
+        toast({
+          title: "生成完了",
+          description: "時間割の生成が完了しました。プレビューで確認・編集できます。",
+          status: "success",
+          duration: 2500,
+          isClosable: true,
+        });
+      } catch (e: any) {
+        toast({
+          title: "生成失敗",
+          description: e?.message || "生成時にエラーが発生しました。",
+          status: "error",
+          duration: 3500,
+          isClosable: true,
+        });
+      } finally {
+        setLoading(false);
+      }
   }
 
   // 保存：プレビューを userData.timetable に適用
