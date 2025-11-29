@@ -37,7 +37,8 @@ export default function Login({ onLogin, onNavigate }: LoginProps) {
       return;
     }
 
-    // ★ 認証成功時
+    // ★ 認証成功時 → localStorage に保存
+    localStorage.setItem("userId", trimmedId);
     onLogin(trimmedId);
     onNavigate("home");
   };

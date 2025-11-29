@@ -7,14 +7,13 @@ import TermManager from './pages/TermManager';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 
-
 export default function App() {
   const [page, setPage] = useState<
     'login' | "signup" | 'home' | 'timetable' | 'students' | 'teachers' | 'term'
   >('login'); // ← 初期ページを login に
 
   const [currentUserId, setCurrentUserId] = useState<string>(
-    localStorage.getItem("currentUserId") || ""
+    localStorage.getItem("userId") || ""   // ← 修正: キー名を一致
   );
 
   const renderPage = () => {
@@ -31,15 +30,15 @@ export default function App() {
         return <TermManager onNavigate={setPage} currentUserId={currentUserId} />;
       case 'home':
         return (
-            <Home
-              onNavigate={setPage}
-              currentUserId={currentUserId}
-              onLogout={() => {
-                localStorage.removeItem("currentUserId");
-                setCurrentUserId("");
-                setPage("login");
-              }}
-            />
+          <Home
+            onNavigate={setPage}
+            currentUserId={currentUserId}
+            onLogout={() => {
+              localStorage.removeItem("userId");   // ← 修正: キー名を一致
+              setCurrentUserId("");
+              setPage("login");
+            }}
+          />
         );
 
       default:
