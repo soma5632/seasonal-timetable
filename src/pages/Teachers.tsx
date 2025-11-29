@@ -1,22 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Box, Heading, Text, Button, VStack, HStack, Input, Select,
-  Table, Thead, Tbody, Tr, Th, Td
+  Table, Thead, Tbody, Tr, Th, Td, Modal, ModalOverlay, ModalContent,
+  ModalHeader, ModalBody, ModalFooter, useDisclosure
 } from "@chakra-ui/react";
 import { useUserData } from "../hooks/useUserData";
+import SearchableNameSelector from "../components/SearchableNameSelector";
+import { Teacher, Term, Student } from "../types";
+
 
 type ScheduleItem = {
   date: [number, number]; // (month, day)
   time: string;
   tag: "×" | "slash" | "triangle" | "blank";
-};
-
-type Teacher = {
-  id: number;
-  name: string;
-  possibleSubjects: string[]; // 授業可能科目
-  schedules: { [termId: string]: { [iso: string]: { [slotIdx: number]: string } } };
-  ngStudents: string[]; // NG生徒
 };
 
 type TeachersProps = {
@@ -58,10 +54,10 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const [selectedTermId, setSelectedTermId] = useState<string>("");
 
   // スケジュール（タームごとに保持）
-  const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: string } }>({});
+  const [scheduleByDate, setScheduleByDate] = useState<{ [iso: string]: { [slotIdx: number]: any } }>({});
 
-  // ターム一覧（localStorageから読み込む）
-  const [terms, setTerms] = useState<{ id: string; name: string; startDate: string; endDate: string; closedSlots?: { [iso: string]: number[] } }[]>([]);
+  // ターム一覧
+  const [terms, setTerms] = useState<Term[]>([]);
 
   // 撮影／アップロード画像プレビュー
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -74,91 +70,92 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
+
+  // モーダル表示制御（△セル編集）
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [editTarget, setEditTarget] = useState<{ iso: string; slotIdx: number } | null>(null);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+
+  // 生徒候補一覧（名前のみ）
+  const studentNames = userData?.students?.map((s: Student) => s.name) ?? [];
   useEffect(() => {
-      if (userData) {
-        if (userData.terms) {
-          const termList = Object.entries(userData.terms)
-            .filter(([_, v]) => v !== null)
-            .map(([id, v]: any) => ({
-              id,
-              name: v.termName,
-              startDate: v.startDate,
-              endDate: v.endDate,
-              closedSlots: v.closedSlots || {},
-            }));
-          setTerms(termList);
-        }
-        if (userData.teachers) {
-          setTeachers(userData.teachers);
-        }
+    if (userData) {
+      if (userData.terms) {
+        const termList = Object.entries(userData.terms)
+          .filter(([_, v]) => v !== null)
+          .map(([id, v]: any) => ({
+            id,
+            name: v.termName,
+            startDate: v.startDate,
+            endDate: v.endDate,
+            closedSlots: v.closedSlots || {},
+          }));
+        setTerms(termList);
       }
+      if (userData.teachers) {
+        setTeachers(userData.teachers);
+      }
+    }
   }, [userData]);
 
   // ---- 授業可能科目 ----
   const addPossibleSubject = () => {
-      if (!selectedTeacher || !newPossibleSubject) return;
+    if (!selectedTeacher || !newPossibleSubject) return;
 
-      // 先生データを更新
-      const updated = {
-        ...selectedTeacher,
-        possibleSubjects: [...selectedTeacher.possibleSubjects, newPossibleSubject],
-      };
-      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-      setTeachers(newTeachers);
-      setSelectedTeacher(updated);
+    const updated = {
+      ...selectedTeacher,
+      possibleSubjects: [...selectedTeacher.possibleSubjects, newPossibleSubject],
+    };
+    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+    setTeachers(newTeachers);
+    setSelectedTeacher(updated);
 
-      // ★ localStorageではなく saveUserData() を呼ぶ
-      saveUserData({ teachers: newTeachers });
+    saveUserData({ teachers: newTeachers });
 
-      // 入力欄をクリア
-      setNewPossibleSubject("");
+    setNewPossibleSubject("");
   };
 
   const removePossibleSubject = (idx: number) => {
-      if (!selectedTeacher) return;
-      const updated = {
-        ...selectedTeacher,
-        possibleSubjects: selectedTeacher.possibleSubjects.filter((_, i) => i !== idx),
-      };
-      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-      setTeachers(newTeachers);
-      setSelectedTeacher(updated);
+    if (!selectedTeacher) return;
+    const updated = {
+      ...selectedTeacher,
+      possibleSubjects: selectedTeacher.possibleSubjects.filter((_, i) => i !== idx),
+    };
+    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+    setTeachers(newTeachers);
+    setSelectedTeacher(updated);
 
-      // ★ localStorageではなく saveUserData()
-      saveUserData({ teachers: newTeachers });
+    saveUserData({ teachers: newTeachers });
   };
 
   // ---- NG生徒 ----
   const addNgStudent = () => {
-      if (!selectedTeacher || !newNgStudent.trim()) return;
-      const updated = {
-        ...selectedTeacher,
-        ngStudents: [...selectedTeacher.ngStudents, newNgStudent.trim()],
-      };
-      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-      setTeachers(newTeachers);
-      setSelectedTeacher(updated);
+    if (!selectedTeacher || !newNgStudent.trim()) return;
+    const updated = {
+      ...selectedTeacher,
+      ngStudents: [...selectedTeacher.ngStudents, newNgStudent.trim()],
+    };
+    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+    setTeachers(newTeachers);
+    setSelectedTeacher(updated);
 
-      // ★ localStorageではなく saveUserData()
-      saveUserData({ teachers: newTeachers });
+    saveUserData({ teachers: newTeachers });
 
-      setNewNgStudent("");
+    setNewNgStudent("");
   };
 
   const removeNgStudent = (idx: number) => {
-      if (!selectedTeacher) return;
-      const updated = {
-        ...selectedTeacher,
-        ngStudents: selectedTeacher.ngStudents.filter((_, i) => i !== idx),
-      };
-      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-      setTeachers(newTeachers);
-      setSelectedTeacher(updated);
+    if (!selectedTeacher) return;
+    const updated = {
+      ...selectedTeacher,
+      ngStudents: selectedTeacher.ngStudents.filter((_, i) => i !== idx),
+    };
+    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+    setTeachers(newTeachers);
+    setSelectedTeacher(updated);
 
-      // ★ localStorageではなく saveUserData()
-      saveUserData({ teachers: newTeachers });
+    saveUserData({ teachers: newTeachers });
   };
-
   // ---- Camera ----
   const startCamera = async () => {
     try {
@@ -306,7 +303,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     const start = new Date(term.startDate);
     const end = new Date(term.endDate);
 
-    const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
+    const empty: { [iso: string]: { [slotIdx: number]: any } } = {};
     const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
 
     const weekdayJa = ["日","月","火","水","木","金","土"];
@@ -360,6 +357,26 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     });
   };
 
+  // ---- 長押し判定（△セル編集用） ----
+  let touchTimer: ReturnType<typeof setTimeout>;
+  const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
+    if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
+      touchTimer = setTimeout(() => {
+        setEditTarget({ iso, slotIdx });
+        if (typeof tag === "object" && tag.students) {
+          setSelectedStudents(tag.students);
+        } else {
+          setSelectedStudents([]);
+        }
+        onOpen();
+      }, 600); // 600ms 長押しで判定
+    }
+  };
+
+  const handleTouchEnd = () => {
+    clearTimeout(touchTimer);
+  };
+
   // ---- 日付クリックで一括切替 ----
   const toggleDay = (dateISO: string) => {
     setScheduleByDate(prev => {
@@ -378,25 +395,98 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       return { ...prev, [dateISO]: updatedDay };
     });
   };
+  {/* △セル編集モーダル */}
+  <Modal isOpen={isOpen} onClose={onClose} size="sm">
+    <ModalOverlay />
+    <ModalContent>
+      <ModalHeader>通常授業の生徒を選択</ModalHeader>
+      <ModalBody>
+        <VStack align="stretch" spacing={3}>
+          <SearchableNameSelector
+            label="生徒を検索して選択"
+            candidates={studentNames}
+            onSelect={(name) => {
+              if (selectedStudents.includes(name)) return;
+              if (selectedStudents.length >= 2) return; // 最大2人まで
+              setSelectedStudents([...selectedStudents, name]);
+            }}
+          />
+          <VStack align="start" spacing={1}>
+            {selectedStudents.map((s, idx) => (
+              <HStack key={idx}>
+                <Text fontSize="sm">{s}</Text>
+                <Button
+                  size="xs"
+                  onClick={() =>
+                    setSelectedStudents(selectedStudents.filter((_, i) => i !== idx))
+                  }
+                >
+                  削除
+                </Button>
+              </HStack>
+            ))}
+          </VStack>
+        </VStack>
+      </ModalBody>
+      <ModalFooter>
+        <HStack spacing={3}>
+          <Button
+            size="sm"
+            colorScheme="blue"
+            onClick={() => {
+              if (!editTarget) return;
+              const { iso, slotIdx } = editTarget;
+              setScheduleByDate((prev) => {
+                const updated = { ...(prev[iso] || {}) };
+                updated[slotIdx] = { tag: "triangle", students: selectedStudents };
+                return { ...prev, [iso]: updated };
+              });
+              onClose();
+            }}
+          >
+            保存
+          </Button>
+          <Button size="sm" onClick={onClose}>
+            キャンセル
+          </Button>
+        </HStack>
+      </ModalFooter>
+    </ModalContent>
+  </Modal>
 
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
     if (!selectedTeacher || !selectedTermId) return;
-    const updated = {
+
+    // scheduleByDate の中身を正規化
+    const normalized: Record<string, Record<number, any>> = {};
+
+    Object.entries(scheduleByDate).forEach(([iso, slots]) => {
+      normalized[iso] = {};
+      Object.entries(slots).forEach(([slotIdxStr, value]) => {
+        const slotIdx = Number(slotIdxStr);
+        if (typeof value === "object" && value.tag === "triangle") {
+          normalized[iso][slotIdx] = {
+            tag: "triangle",
+            students: value.students || []
+          };
+        } else {
+          normalized[iso][slotIdx] = value;
+        }
+      });
+    });
+
+    const updated: Teacher = {
       ...selectedTeacher,
-      schedules: { ...selectedTeacher.schedules, [selectedTermId]: scheduleByDate }
+      schedules: { ...selectedTeacher.schedules, [selectedTermId]: normalized }
     };
+
     const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
     setTeachers(newTeachers);
     setSelectedTeacher(updated);
 
     saveUserData({ teachers: newTeachers });
   };
-
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
-
   // ---- Render ----
   if (selectedTeacher) {
     return (
@@ -406,91 +496,69 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         </Heading>
 
         {/* 授業可能科目 */}
-        <Heading size="sm" mt={4}>授業可能科目</Heading>
-        <VStack align="start" spacing={2} mt={2}>
-          {selectedTeacher.possibleSubjects.map((sub, idx) => (
-            <HStack key={idx}>
-              <Text fontSize="sm">{sub}</Text>
-              <Button size="xs" onClick={() => removePossibleSubject(idx)}>削除</Button>
-            </HStack>
-          ))}
-          <HStack>
-            <Select value={newPossibleSubject} onChange={e => setNewPossibleSubject(e.target.value)} maxW="140px" size="sm">
-              <option value="">科目を選択</option>
-              {subjectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        <Box mt={4}>
+          <Heading size="sm">授業可能科目</Heading>
+          <HStack mt={2} spacing={2}>
+            <Select
+              size="sm"
+              placeholder="科目を選択"
+              value={newPossibleSubject}
+              onChange={e => setNewPossibleSubject(e.target.value)}
+            >
+              {subjectOptions.map((s, idx) => (
+                <option key={idx} value={s}>{s}</option>
+              ))}
             </Select>
             <Button size="sm" onClick={addPossibleSubject}>追加</Button>
           </HStack>
-        </VStack>
+          <VStack align="start" mt={2}>
+            {selectedTeacher.possibleSubjects.map((s, idx) => (
+              <HStack key={idx}>
+                <Text fontSize="sm">{s}</Text>
+                <Button size="xs" onClick={() => removePossibleSubject(idx)}>削除</Button>
+              </HStack>
+            ))}
+          </VStack>
+        </Box>
 
         {/* NG生徒 */}
-        <Heading size="sm" mt={6}>NG生徒</Heading>
-        <VStack align="start" spacing={2} mt={2}>
-          {selectedTeacher.ngStudents.map((s, idx) => (
-            <HStack key={idx}>
-              <Text fontSize="sm">{s}</Text>
-              <Button size="xs" onClick={() => removeNgStudent(idx)}>削除</Button>
-            </HStack>
-          ))}
-          <HStack>
+        <Box mt={4}>
+          <Heading size="sm">NG生徒</Heading>
+          <HStack mt={2} spacing={2}>
             <Input
-              type="text"
+              size="sm"
               placeholder="生徒名"
               value={newNgStudent}
               onChange={e => setNewNgStudent(e.target.value)}
-              maxW="160px"
-              size="sm"
             />
             <Button size="sm" onClick={addNgStudent}>追加</Button>
           </HStack>
-        </VStack>
+          <VStack align="start" mt={2}>
+            {selectedTeacher.ngStudents.map((s, idx) => (
+              <HStack key={idx}>
+                <Text fontSize="sm">{s}</Text>
+                <Button size="xs" onClick={() => removeNgStudent(idx)}>削除</Button>
+              </HStack>
+            ))}
+          </VStack>
+        </Box>
 
         {/* ターム選択 */}
-        <Heading size="sm" mt={6}>スケジュール（ターム別）</Heading>
-        <Select
-          placeholder="タームを選択"
-          value={selectedTermId}
-          onChange={e => setSelectedTermId(e.target.value)}
-          maxW="240px"
-          mt={2}
-          size="sm"
-        >
-          {terms.map(term => (
-            <option key={term.id} value={term.id}>
-              {term.name} ({term.startDate}〜{term.endDate})
-            </option>
-          ))}
-        </Select>
+        <Box mt={4}>
+          <Heading size="sm">ターム選択</Heading>
+          <Select
+            size="sm"
+            placeholder="タームを選択"
+            value={selectedTermId}
+            onChange={e => setSelectedTermId(e.target.value)}
+          >
+            {terms.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </Select>
+        </Box>
 
-        {/* AIスケジュール推定 */}
-        {selectedTermId && (
-          <Box mt={4}>
-            <Heading size="sm" mb={2}>AIでスケジュール推定</Heading>
-            <HStack spacing={3}>
-              {!cameraOn ? (
-                <Button size="sm" onClick={startCamera}>カメラ起動</Button>
-              ) : (
-                <Button size="sm" onClick={stopCamera}>カメラ停止</Button>
-              )}
-              <Button size="sm" onClick={captureAndSend} disabled={!cameraOn}>撮影して推定</Button>
-              <label>
-                <span style={{ padding: "4px 8px", border: "1px solid #ccc", fontSize: "smaller" }}>写真から選択</span>
-                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
-              </label>
-            </HStack>
-            <video ref={videoRef} autoPlay playsInline style={{ width: 240, background: "#000", marginTop: 8 }} />
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-
-            {/* プレビュー画像 */}
-            {previewUrl && (
-              <Box mt={4}>
-                <Heading size="sm" mb={2}>プレビュー</Heading>
-                <img src={previewUrl} alt="preview" style={{ width: 200, border: "1px solid #ccc" }} />
-              </Box>
-            )}
-          </Box>
-        )}
-            {/* 週ごとの縦積みグリッド（月〜土のみ、閉校セル灰色＆編集不可、日付クリックで一括切替） */}
+        {/* スケジュール表 */}
         {dateRangeValid && weekBlocks.length > 0 && (
           <VStack align="stretch" spacing={4} mt={4}>
             {weekBlocks.map((block, blockIdx) => (
@@ -537,7 +605,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               </Td>
                             );
                           }
-                          const style = TAG_STYLE[tag];
+                          const style = typeof tag === "object" ? TAG_STYLE[tag.tag] : TAG_STYLE[tag];
                           return (
                             <Td
                               key={d.iso + "-" + slotIdx}
@@ -549,6 +617,9 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               bg={style.bg}
                               color={style.color}
                               onClick={() => toggleTag(d.iso, slotIdx)}
+                              onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
+                              onTouchEnd={handleTouchEnd}
+                              style={{ userSelect: "none" }}
                             >
                               {style.symbol}
                             </Td>
@@ -568,7 +639,6 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         </Button>
 
         <Box mt={6}>
-          {/* ★ 一覧に戻るボタンを先生一覧画面へ */}
           <Button size="sm" onClick={() => { setSelectedTeacher(null); onNavigate("teachers"); }}>
             一覧に戻る
           </Button>
@@ -579,84 +649,79 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- 一覧＋新規登録フォーム ----
   return (
-      <Box p={4}>
-        <Heading size="md" mb={4}>先生管理</Heading>
+    <Box p={4}>
+      <Heading size="md" mb={4}>先生管理</Heading>
 
-        {/* ホームに戻る＋新規登録ボタンを縦並びに */}
-        <VStack align="start" spacing={2} mb={4}>
-          <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
-            ホームに戻る
-          </Button>
+      <VStack align="start" spacing={2} mb={4}>
+        <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
+          ホームに戻る
+        </Button>
 
-          {!showForm ? (
-            <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
-          ) : (
-            <VStack align="start" spacing={3} mt={2}>
-              <Input
-                type="text"
-                placeholder="名前を入力"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                size="sm"
-              />
-              <HStack>
-                <Button size="sm" onClick={() => {
-                  if (!newName.trim()) return;
-                  const newTeacher: Teacher = {
-                    id: Date.now(),
-                    name: newName.trim(),
-                    possibleSubjects: [],
-                    schedules: {},
-                    ngStudents: [],
-                  };
-                  const updated = [...teachers, newTeacher];
+        {!showForm ? (
+          <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
+        ) : (
+          <VStack align="start" spacing={3} mt={2}>
+            <Input
+              type="text"
+              placeholder="名前を入力"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              size="sm"
+            />
+            <HStack>
+              <Button size="sm" onClick={() => {
+                if (!newName.trim()) return;
+                const newTeacher: Teacher = {
+                  id: Date.now(),
+                  name: newName.trim(),
+                  possibleSubjects: [],
+                  schedules: {},
+                  ngStudents: [],
+                };
+                const updated = [...teachers, newTeacher];
+                setTeachers(updated);
+                saveUserData({ teachers: updated });
+                setNewName("");
+                setShowForm(false);
+              }}>登録</Button>
+              <Button size="sm" onClick={() => {
+                setShowForm(false);
+                setNewName("");
+              }}>
+                キャンセル
+              </Button>
+            </HStack>
+          </VStack>
+        )}
+      </VStack>
+
+      <Box mt={6}>
+        <Heading size="sm" mb={2}>先生一覧</Heading>
+        <HStack wrap="wrap" spacing={4}>
+          {teachers.map(t => (
+            <Box
+              key={t.id}
+              borderWidth="1px"
+              borderRadius="md"
+              p={2}
+              w="200px"
+              bg="white"
+              boxShadow="sm"
+            >
+              <Text fontWeight="bold" mb={2} fontSize="sm">{t.name}</Text>
+              <HStack spacing={2}>
+                <Button size="xs" onClick={() => setSelectedTeacher(t)}>詳細を見る</Button>
+                <Button size="xs" colorScheme="red" onClick={() => {
+                  if (!window.confirm("本当に削除しますか？")) return;
+                  const updated = teachers.filter(x => x.id !== t.id);
                   setTeachers(updated);
-
                   saveUserData({ teachers: updated });
-
-                  setNewName("");
-                  setShowForm(false);
-                }}>登録</Button>
-                <Button size="sm" onClick={() => {
-                  setShowForm(false);
-                  setNewName("");
-                }}>
-                  キャンセル
-                </Button>
+                }}>削除</Button>
               </HStack>
-            </VStack>
-          )}
-        </VStack>
-
-        {/* 一覧表示 */}
-        <Box mt={6}>
-          <Heading size="sm" mb={2}>先生一覧</Heading>
-          <HStack wrap="wrap" spacing={4}>
-            {teachers.map(t => (
-              <Box
-                key={t.id}
-                borderWidth="1px"
-                borderRadius="md"
-                p={2}
-                w="200px"
-                bg="white"
-                boxShadow="sm"
-              >
-                <Text fontWeight="bold" mb={2} fontSize="sm">{t.name}</Text>
-                <HStack spacing={2}>
-                  <Button size="xs" onClick={() => setSelectedTeacher(t)}>詳細を見る</Button>
-                  <Button size="xs" colorScheme="red" onClick={() => {
-                    if (!window.confirm("本当に削除しますか？")) return;
-                    const updated = teachers.filter(x => x.id !== t.id);
-                    setTeachers(updated);
-
-                    saveUserData({ teachers: updated });
-                  }}>削除</Button>
-                </HStack>
-              </Box>
-            ))}
-          </HStack>
-        </Box>
+            </Box>
+          ))}
+        </HStack>
       </Box>
+    </Box>
   );
 }
