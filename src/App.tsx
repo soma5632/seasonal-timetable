@@ -13,8 +13,13 @@ export default function App() {
   >('login'); // ← 初期ページを login に
 
   const [currentUserId, setCurrentUserId] = useState<string>(
-    localStorage.getItem("userId") || ""   // ← 修正: キー名を一致
+    localStorage.getItem("userId") || ""   // ← キー名を一致
   );
+
+  const handleLogin = (id: string) => {
+    setCurrentUserId(id);
+    localStorage.setItem("userId", id);   // ← ここで localStorage に保存
+  };
 
   const renderPage = () => {
     switch (page) {
@@ -34,7 +39,7 @@ export default function App() {
             onNavigate={setPage}
             currentUserId={currentUserId}
             onLogout={() => {
-              localStorage.removeItem("userId");   // ← 修正: キー名を一致
+              localStorage.removeItem("userId");   // ← キー名を一致
               setCurrentUserId("");
               setPage("login");
             }}
@@ -42,7 +47,7 @@ export default function App() {
         );
 
       default:
-        return <Login onLogin={setCurrentUserId} onNavigate={setPage} />;
+        return <Login onLogin={handleLogin} onNavigate={setPage} />; // ← 修正
     }
   };
 
