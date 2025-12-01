@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r"/usr/local/bin/tesseract"
 import re
 from skimage.feature import hog
 import joblib
