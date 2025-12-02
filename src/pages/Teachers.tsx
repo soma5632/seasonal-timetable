@@ -73,6 +73,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // モーダル表示制御（△セル編集）
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const [applyOnlyThisDay, setApplyOnlyThisDay] = useState(false);
   const [editTarget, setEditTarget] = useState<{ iso: string; slotIdx: number } | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
 
@@ -624,25 +625,66 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       </HStack>
                     ))}
                   </VStack>
+                  <Text fontSize="sm" fontWeight="bold">適用範囲</Text>
+                  <HStack>
+                    <input
+                      type="radio"
+                      name="applyScope"
+                      checked={!applyOnlyThisDay}
+                      onChange={() => setApplyOnlyThisDay(false)}
+                    />
+                    <Text fontSize="sm">同じ曜日の同じ時間すべて（デフォルト）</Text>
+                  </HStack>
+                  <HStack>
+                    <input
+                      type="radio"
+                      name="applyScope"
+                      checked={applyOnlyThisDay}
+                      onChange={() => setApplyOnlyThisDay(true)}
+                    />
+                    <Text fontSize="sm">この日だけ適用する</Text>
+                  </HStack>
                 </VStack>
               </ModalBody>
               <ModalFooter>
                 <HStack spacing={3}>
                   <Button
-                    size="sm"
-                    colorScheme="blue"
-                    onClick={() => {
-                      if (!editTarget) return;
-                      const { iso, slotIdx } = editTarget;
-                      setScheduleByDate((prev) => {
-                        const updated = { ...(prev[iso] || {}) };
-                        updated[slotIdx] = { tag: "triangle", students: selectedStudents };
-                        return { ...prev, [iso]: updated };
-                      });
-                      onClose();
-                    }}
-                  >
-                    保存
+                      size="sm"
+                      colorScheme="blue"
+                      onClick={() => {
+                        if (!editTarget) return;
+                        const { iso, slotIdx } = editTarget;
+
+                        setScheduleByDate((prev) => {
+                          const updated = { ...prev };
+
+                          if (applyOnlyThisDay) {
+                            // この日だけ更新
+                            updated[iso] = {
+                              ...(prev[iso] || {}),
+                              [slotIdx]: { tag: "triangle", students: selectedStudents }
+                            };
+                          } else {
+                            // 同じ曜日すべて更新
+                            const targetWeekday = new Date(iso).getDay();
+                            Object.keys(prev).forEach(dateISO => {
+                              const d = new Date(dateISO);
+                              if (d.getDay() === targetWeekday) {
+                                updated[dateISO] = {
+                                  ...(prev[dateISO] || {}),
+                                  [slotIdx]: { tag: "triangle", students: selectedStudents }
+                                };
+                              }
+                            });
+                          }
+
+                          return updated;
+                        });
+
+                        onClose();
+                      }}
+                    >
+                      保存
                   </Button>
                   <Button size="sm" onClick={onClose}>
                     キャンセル
