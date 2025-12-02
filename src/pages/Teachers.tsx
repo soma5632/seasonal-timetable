@@ -76,6 +76,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const [applyOnlyThisDay, setApplyOnlyThisDay] = useState(false);
   const [editTarget, setEditTarget] = useState<{ iso: string; slotIdx: number } | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState("");
 
   // 生徒候補一覧（名前のみ）
   const studentNames = userData?.students?.map((s: Student) => s.name) ?? [];
@@ -642,13 +643,16 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
               <ModalBody>
                 <VStack align="stretch" spacing={3}>
                   <SearchableNameSelector
-                    label="生徒を検索して選択"
-                    candidates={studentNames}
-                    onSelect={(name) => {
-                      if (selectedStudents.includes(name)) return;
-                      if (selectedStudents.length >= 2) return; // 最大2人まで
-                      setSelectedStudents([...selectedStudents, name]);
-                    }}
+                      label="生徒を検索して選択"
+                      candidates={studentNames}
+                      value={searchText}
+                      onChange={setSearchText}
+                      onSelect={(name) => {
+                        if (selectedStudents.includes(name)) return;
+                        if (selectedStudents.length >= 2) return; // 最大2人まで
+                        setSelectedStudents([...selectedStudents, name]);
+                        setSearchText("");
+                      }}
                   />
                   <VStack align="start" spacing={1}>
                     {selectedStudents.map((s, idx) => (
