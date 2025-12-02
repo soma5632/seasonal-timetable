@@ -101,33 +101,23 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   }, [userData]);
 
   // ---- 授業可能科目 ----
-  const addPossibleSubject = () => {
-    if (!selectedTeacher || !newPossibleSubject) return;
+  const toggleSubject = (subject: string) => {
+      if (!selectedTeacher) return;
 
-    const updated = {
-      ...selectedTeacher,
-      possibleSubjects: [...selectedTeacher.possibleSubjects, newPossibleSubject],
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
+      let updatedSubjects: string[];
+      if (selectedTeacher.possibleSubjects.includes(subject)) {
+        // OFF → 削除
+        updatedSubjects = selectedTeacher.possibleSubjects.filter(s => s !== subject);
+      } else {
+        // ON → 追加
+        updatedSubjects = [...selectedTeacher.possibleSubjects, subject];
+      }
 
-    saveUserData({ teachers: newTeachers });
-
-    setNewPossibleSubject("");
-  };
-
-  const removePossibleSubject = (idx: number) => {
-    if (!selectedTeacher) return;
-    const updated = {
-      ...selectedTeacher,
-      possibleSubjects: selectedTeacher.possibleSubjects.filter((_, i) => i !== idx),
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
-
-    saveUserData({ teachers: newTeachers });
+      const updated = { ...selectedTeacher, possibleSubjects: updatedSubjects };
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
+      saveUserData({ teachers: newTeachers });
   };
 
   // ---- NG生徒 ----
@@ -158,6 +148,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
     saveUserData({ teachers: newTeachers });
   };
+
   // ---- Camera ----
   const startCamera = async () => {
     try {
@@ -485,27 +476,26 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         {/* 授業可能科目 */}
         <Box mt={4}>
           <Heading size="sm">授業可能科目</Heading>
-          <HStack mt={2} spacing={2}>
-            <Select
-              size="sm"
-              placeholder="科目を選択"
-              value={newPossibleSubject}
-              onChange={e => setNewPossibleSubject(e.target.value)}
-            >
-              {subjectOptions.map((s, idx) => (
-                <option key={idx} value={s}>{s}</option>
-              ))}
-            </Select>
-            <Button size="sm" onClick={addPossibleSubject}>追加</Button>
+          <HStack wrap="wrap" spacing={2} mt={2}>
+            {subjectOptions.map((s, idx) => {
+              const isSelected = selectedTeacher?.possibleSubjects.includes(s);
+              return (
+                <Box
+                  key={idx}
+                  px={3}
+                  py={2}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  cursor="pointer"
+                  bg={isSelected ? "blue.500" : "gray.100"}
+                  color={isSelected ? "white" : "gray.700"}
+                  onClick={() => toggleSubject(s)}
+                >
+                  {s}
+                </Box>
+              );
+            })}
           </HStack>
-          <VStack align="start" mt={2}>
-            {selectedTeacher.possibleSubjects.map((s, idx) => (
-              <HStack key={idx}>
-                <Text fontSize="sm">{s}</Text>
-                <Button size="xs" onClick={() => removePossibleSubject(idx)}>削除</Button>
-              </HStack>
-            ))}
-          </VStack>
         </Box>
 
         {/* NG生徒 */}
