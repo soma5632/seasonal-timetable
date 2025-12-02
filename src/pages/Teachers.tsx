@@ -358,34 +358,20 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- 長押し判定（△セル編集用） ----
-  let touchTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressTriggered = false;
+  let touchTimer: ReturnType<typeof setTimeout>;
 
-  const handlePointerDown = (iso: string, slotIdx: number, tag: any) => {
-      longPressTriggered = false;
+  const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
         touchTimer = setTimeout(() => {
-          longPressTriggered = true;
           setEditTarget({ iso, slotIdx });
-          if (typeof tag === "object" && tag.students) {
-            setSelectedStudents(tag.students);
-          } else {
-            setSelectedStudents([]);
-          }
+          setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
-        }, 600); // 600ms 長押しで判定
+        }, 600);
       }
   };
 
-  const handlePointerUp = (iso: string, slotIdx: number) => {
-      if (touchTimer) {
-        clearTimeout(touchTimer);
-        touchTimer = null;
-      }
-      if (!longPressTriggered) {
-        // 通常タップ扱い → 〇×△切り替え
-        toggleTag(iso, slotIdx);
-      }
+  const handleTouchEnd = () => {
+      clearTimeout(touchTimer);
   };
 
   // ---- 日付クリックで一括切替 ----
@@ -627,8 +613,8 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               cursor="pointer"
                               bg={style.bg}
                               color={style.color}
-                              onPointerDown={() => handlePointerDown(d.iso, slotIdx, tag)}
-                              onPointerUp={() => handlePointerUp(d.iso, slotIdx)}
+                              onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
+                              onTouchEnd={handleTouchEnd}
                               style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}
