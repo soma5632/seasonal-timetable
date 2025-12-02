@@ -19,6 +19,7 @@ import {
   Td,
 } from "@chakra-ui/react";
 import { useUserData } from "../hooks/useUserData";
+import { Teacher, Student } from "../types";
 
 // ===== 型定義 =====
 export type Lesson = {
@@ -454,33 +455,32 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
                       lastSelectedTermName: termName,
 
                       // ★ teachers に閉校情報を反映
-                      teachers: (userData?.teachers || []).map(t => {
-                        const updatedSchedules = { ...t.schedules };
-                        const closedSlots = payload.closedSlots || {};
-                        if (updatedSchedules[termName]) {
-                          Object.keys(updatedSchedules[termName]).forEach(dateISO => {
-                            const slots = updatedSchedules[termName][dateISO];
-                            closedSlots[dateISO]?.forEach(slotIdx => {
-                              slots[slotIdx] = "closed"; // 閉校セルを再反映
+                      teachers: (userData?.teachers || []).map((t: Teacher) => {
+                          const updatedSchedules = { ...t.schedules };
+                          const closedSlots = payload.closedSlots || {};
+                          if (updatedSchedules[termName]) {
+                            Object.keys(updatedSchedules[termName]).forEach(dateISO => {
+                              const slots = updatedSchedules[termName][dateISO];
+                              closedSlots[dateISO]?.forEach(slotIdx => {
+                                slots[slotIdx] = "closed";
+                              });
                             });
-                          });
-                        }
-                        return { ...t, schedules: updatedSchedules };
+                          }
+                          return { ...t, schedules: updatedSchedules };
                       }),
 
-                      // ★ students に閉校情報を反映
-                      students: (userData?.students || []).map(s => {
-                        const updatedSchedules = { ...s.schedules };
-                        const closedSlots = payload.closedSlots || {};
-                        if (updatedSchedules[termName]) {
-                          Object.keys(updatedSchedules[termName]).forEach(dateISO => {
-                            const slots = updatedSchedules[termName][dateISO];
-                            closedSlots[dateISO]?.forEach(slotIdx => {
-                              slots[slotIdx] = "closed";
+                      students: (userData?.students || []).map((s: Student) => {
+                          const updatedSchedules = { ...s.schedules };
+                          const closedSlots = payload.closedSlots || {};
+                          if (updatedSchedules[termName]) {
+                            Object.keys(updatedSchedules[termName]).forEach(dateISO => {
+                              const slots = updatedSchedules[termName][dateISO];
+                              closedSlots[dateISO]?.forEach(slotIdx => {
+                                slots[slotIdx] = "closed";
+                              });
                             });
-                          });
-                        }
-                        return { ...s, schedules: updatedSchedules };
+                          }
+                          return { ...s, schedules: updatedSchedules };
                       }),
                   });
 
