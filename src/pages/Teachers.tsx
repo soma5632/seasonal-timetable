@@ -362,12 +362,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   // ---- 長押し判定（△セル編集用） ----
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
   let longPressTriggered = false;
+  let suppressNextClick = false;
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
       longPressTriggered = false;
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
         touchTimer = setTimeout(() => {
           longPressTriggered = true;
+          suppressNextClick = true; // ← 次のクリックを無視する
           setEditTarget({ iso, slotIdx });
           setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
@@ -567,10 +569,15 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               cursor="pointer"
                               bg={style.bg}
                               color={style.color}
-                              onClick={() => toggleTag(d.iso, slotIdx)}
+                              onClick={() => {
+                                if (suppressNextClick) {
+                                  suppressNextClick = false; // ← 1回だけ無視
+                                  return;
+                                }
+                                toggleTag(d.iso, slotIdx);
+                              }}
                               onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
                               onTouchEnd={() => handleTouchEnd(d.iso, slotIdx)}
-                              style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}
                             </Td>
