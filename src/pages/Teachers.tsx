@@ -582,7 +582,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               style={{
                                 userSelect: "none",
                                 WebkitUserSelect: "none",
-                                WebkitTouchCallout: "none"
+                                WebkitTouchCallout: "none",
                                 touchAction: "manipulation"
                               }}
                             >
