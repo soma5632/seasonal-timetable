@@ -608,22 +608,15 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                           const style = typeof tag === "object" ? TAG_STYLE[tag.tag] : TAG_STYLE[tag];
                           return (
                             <Td
-                              key={d.iso + "-" + slotIdx}
-                              fontSize="xx-small"
-                              p={0.5}
-                              minW="40px"
-                              textAlign="center"
-                              cursor="pointer"
-                              bg={style.bg}
-                              color={style.color}
-                              onClick={() => toggleTag(d.iso, slotIdx)}
-                              onContextMenu={(e) => {
-                                e.preventDefault(); // 長押しでテキスト選択やメニューを防止
+                              onPointerDown={(e) => {
                                 if (tag === "triangle") {
-                                  setEditTarget({ iso: d.iso, slotIdx });
-                                  onOpen();
+                                  touchTimer = setTimeout(() => {
+                                    setEditTarget({ iso: d.iso, slotIdx });
+                                    onOpen();
+                                  }, 600);
                                 }
                               }}
+                              onPointerUp={() => clearTimeout(touchTimer)}
                               style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}
