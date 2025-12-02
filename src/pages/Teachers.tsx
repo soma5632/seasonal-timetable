@@ -392,6 +392,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       return { ...prev, [dateISO]: updatedDay };
     });
   };
+
   {/* △セル編集モーダル */}
   <Modal isOpen={isOpen} onClose={onClose} size="sm">
     <ModalOverlay />
@@ -613,6 +614,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               cursor="pointer"
                               bg={style.bg}
                               color={style.color}
+                              onClick={() => toggleTag(d.iso, slotIdx)}
                               onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
                               onTouchEnd={handleTouchEnd}
                               style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
