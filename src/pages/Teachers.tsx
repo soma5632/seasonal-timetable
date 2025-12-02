@@ -360,16 +360,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- 長押し判定（△セル編集用） ----
-  let touchTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressTriggered = false;
-  let suppressNextClick = false;
+  const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
-      longPressTriggered = false;
+      longPressTriggered.current = false;
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
-        touchTimer = setTimeout(() => {
-          longPressTriggered = true;
-          suppressNextClick = true; // ← 次のクリックを無視する
+        touchTimer.current = setTimeout(() => {
+          longPressTriggered.current = true;
           setEditTarget({ iso, slotIdx });
           setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
@@ -378,21 +376,19 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   const handleTouchEnd = (iso: string, slotIdx: number) => {
-      if (touchTimer) {
-        clearTimeout(touchTimer);
-        touchTimer = null;
+      if (touchTimer.current) {
+        clearTimeout(touchTimer.current);
+        touchTimer.current = null;
       }
-      if (!longPressTriggered) {
-        // 通常タップ扱い → 〇×△切り替え
+      if (!longPressTriggered.current) {
+        // 通常タップのみ切り替え
         toggleTag(iso, slotIdx);
       }
   };
 
-  const handleTouchMove = () => {
-      if (touchTimer) {
-        clearTimeout(touchTimer);
-        touchTimer = null;
-      }
+  const handleCloseModal = () => {
+      longPressTriggered.current = false;
+      onClose();
   };
 
   // ---- 日付クリックで一括切替 ----
