@@ -656,6 +656,9 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
           ホームに戻る
         </Button>
+        <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
+          大成功！！！
+        </Button>
 
         {!showForm ? (
           <Button size="sm" onClick={() => setShowForm(true)}>新規登録</Button>
