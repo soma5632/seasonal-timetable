@@ -388,6 +388,13 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       }
   };
 
+  const handleTouchMove = () => {
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+  };
+
   // ---- 日付クリックで一括切替 ----
   const toggleDay = (dateISO: string) => {
     setScheduleByDate(prev => {
@@ -569,15 +576,15 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               cursor="pointer"
                               bg={style.bg}
                               color={style.color}
-                              onClick={() => {
-                                if (suppressNextClick) {
-                                  suppressNextClick = false; // ← 1回だけ無視
-                                  return;
-                                }
-                                toggleTag(d.iso, slotIdx);
-                              }}
                               onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
                               onTouchEnd={() => handleTouchEnd(d.iso, slotIdx)}
+                              onTouchMove={handleTouchMove}
+                              style={{
+                                userSelect: "none",
+                                WebkitUserSelect: "none",
+                                WebkitTouchCallout: "none"
+                                touchAction: "manipulation"
+                              }}
                             >
                               {style.symbol}
                             </Td>
