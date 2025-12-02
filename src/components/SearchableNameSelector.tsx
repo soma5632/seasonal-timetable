@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Box, Input, List, ListItem, Text, VStack
 } from "@chakra-ui/react";
@@ -6,24 +6,30 @@ import {
 type Props = {
   label?: string;
   candidates: string[];
+  value: string;                          // ← 追加
+  onChange: (text: string) => void;       // ← 追加
   onSelect: (name: string) => void;
 };
 
-export default function SearchableNameSelector({ label, candidates, onSelect }: Props) {
-  const [query, setQuery] = useState("");
-  const [filtered, setFiltered] = useState<string[]>(candidates);
+export default function SearchableNameSelector({
+  label,
+  candidates,
+  value,
+  onChange,
+  onSelect
+}: Props) {
+  // 入力値は外部から受け取るので内部 state は不要
+  const filtered = candidates.filter(name =>
+    name.toLowerCase().includes(value.toLowerCase())
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value;
-    setQuery(q);
-    const f = candidates.filter(name => name.toLowerCase().includes(q.toLowerCase()));
-    setFiltered(f);
+    onChange(e.target.value);
   };
 
   const handleSelect = (name: string) => {
-    setQuery(name);
-    setFiltered([]);
     onSelect(name);
+    onChange(""); // ← 選択後に入力欄をクリア
   };
 
   return (
@@ -31,7 +37,7 @@ export default function SearchableNameSelector({ label, candidates, onSelect }: 
       {label && <Text fontSize="sm">{label}</Text>}
       <Input
         placeholder="名前を検索"
-        value={query}
+        value={value}
         onChange={handleChange}
         size="sm"
       />
