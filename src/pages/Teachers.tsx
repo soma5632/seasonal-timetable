@@ -358,11 +358,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- 長押し判定（△セル編集用） ----
-  let touchTimer: ReturnType<typeof setTimeout>;
+  let touchTimer: ReturnType<typeof setTimeout> | null = null;
+  let longPressTriggered = false;
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
+      longPressTriggered = false;
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
         touchTimer = setTimeout(() => {
+          longPressTriggered = true;
           setEditTarget({ iso, slotIdx });
           setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
@@ -370,8 +373,15 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       }
   };
 
-  const handleTouchEnd = () => {
-      clearTimeout(touchTimer);
+  const handleTouchEnd = (iso: string, slotIdx: number) => {
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+      if (!longPressTriggered) {
+        // 通常タップ扱い → 〇×△切り替え
+        toggleTag(iso, slotIdx);
+      }
   };
 
   // ---- 日付クリックで一括切替 ----
@@ -616,7 +626,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               color={style.color}
                               onClick={() => toggleTag(d.iso, slotIdx)}
                               onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
-                              onTouchEnd={handleTouchEnd}
+                              onTouchEnd={() => handleTouchEnd(d.iso, slotIdx)}
                               style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}

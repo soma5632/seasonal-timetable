@@ -10,7 +10,7 @@ import SignUp from './pages/SignUp';
 export default function App() {
   const [page, setPage] = useState<
     'login' | "signup" | 'home' | 'timetable' | 'students' | 'teachers' | 'term'
-  >('teachers'); // ← 初期ページを login に
+  >('login');
 
   const [currentUserId, setCurrentUserId] = useState<string>(
     localStorage.getItem("userId") || ""   // ← キー名を一致
