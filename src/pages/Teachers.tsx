@@ -360,35 +360,65 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- 長押し判定（△セル編集用） ----
-  const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTriggered = useRef(false);
+  const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const movedRef = useRef(false);
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
-      longPressTriggered.current = false;
-      if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
-        touchTimer.current = setTimeout(() => {
-          longPressTriggered.current = true;
-          setEditTarget({ iso, slotIdx });
-          setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
-          onOpen();
-        }, 600);
+      longPressTriggeredRef.current = false;
+      movedRef.current = false;
+
+      const isTriangle =
+        (typeof tag === "string" && tag === "triangle") ||
+        (typeof tag === "object" && tag.tag === "triangle");
+
+      if (!isTriangle) return;
+
+      // スタート時に既存タイマーをクリア
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current);
+        touchTimerRef.current = null;
+      }
+
+      touchTimerRef.current = setTimeout(() => {
+        longPressTriggeredRef.current = true;
+        setEditTarget({ iso, slotIdx });
+        setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
+        onOpen(); // モーダル開く
+      }, 600);
+  };
+
+  const handleTouchMove = () => {
+      // 指が動いた（スクロールや微小移動）→長押しキャンセル
+      movedRef.current = true;
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current);
+        touchTimerRef.current = null;
       }
   };
 
   const handleTouchEnd = (iso: string, slotIdx: number) => {
-      if (touchTimer.current) {
-        clearTimeout(touchTimer.current);
-        touchTimer.current = null;
+      // まずタイマーをクリア
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current);
+        touchTimerRef.current = null;
       }
-      if (!longPressTriggered.current) {
-        // 通常タップのみ切り替え
-        toggleTag(iso, slotIdx);
-      }
-  };
 
-  const handleCloseModal = () => {
-      longPressTriggered.current = false;
-      onClose();
+      // 長押しが確定していれば、その後の touchend は無視
+      if (longPressTriggeredRef.current) {
+        // 次のインタラクションに影響しないよう軽くリセット
+        longPressTriggeredRef.current = false;
+        return;
+      }
+
+      // 指が動いた場合も通常タップ扱いにしない
+      if (movedRef.current) {
+        movedRef.current = false;
+        return;
+      }
+
+      // ここまで来たら通常タップ → 〇×△切替
+      toggleTag(iso, slotIdx);
   };
 
   // ---- 日付クリックで一括切替 ----
