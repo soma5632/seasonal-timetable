@@ -121,21 +121,6 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- NG生徒 ----
-  const addNgStudent = () => {
-    if (!selectedTeacher || !newNgStudent.trim()) return;
-    const updated = {
-      ...selectedTeacher,
-      ngStudents: [...selectedTeacher.ngStudents, newNgStudent.trim()],
-    };
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
-
-    saveUserData({ teachers: newTeachers });
-
-    setNewNgStudent("");
-  };
-
   const removeNgStudent = (idx: number) => {
     if (!selectedTeacher) return;
     const updated = {
@@ -501,20 +486,37 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         {/* NG生徒 */}
         <Box mt={4}>
           <Heading size="sm">NG生徒</Heading>
-          <HStack mt={2} spacing={2}>
-            <Input
-              size="sm"
-              placeholder="生徒名"
-              value={newNgStudent}
-              onChange={e => setNewNgStudent(e.target.value)}
-            />
-            <Button size="sm" onClick={addNgStudent}>追加</Button>
-          </HStack>
+          <SearchableNameSelector
+            label="NG生徒を検索して追加"
+            candidates={studentNames}
+            value={newNgStudent}
+            onChange={setNewNgStudent}
+            onSelect={(name) => {
+              if (!selectedTeacher) return;
+              if (selectedTeacher.ngStudents.includes(name)) return;
+
+              const updated = {
+                ...selectedTeacher,
+                ngStudents: [...selectedTeacher.ngStudents, name],
+              };
+              const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+              setTeachers(newTeachers);
+              setSelectedTeacher(updated);
+              saveUserData({ teachers: newTeachers });
+
+              setNewNgStudent(""); // 入力欄をクリア
+            }}
+          />
           <VStack align="start" mt={2}>
             {selectedTeacher.ngStudents.map((s, idx) => (
               <HStack key={idx}>
                 <Text fontSize="sm">{s}</Text>
-                <Button size="xs" onClick={() => removeNgStudent(idx)}>削除</Button>
+                <Button
+                  size="xs"
+                  onClick={() => removeNgStudent(idx)}
+                >
+                  削除
+                </Button>
               </HStack>
             ))}
           </VStack>
