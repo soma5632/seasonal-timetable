@@ -594,7 +594,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
           </Button>
         </Box>
         {/* △セル編集モーダル */}
-        <Modal isOpen={isOpen} onClose={onClose} size="sm">
+        <Modal isOpen={isOpen} onClose={onClose} size="sm" blockScrollOnMount={false}>
             <ModalOverlay />
             <ModalContent>
               <ModalHeader>通常授業の生徒を選択</ModalHeader>
