@@ -617,9 +617,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               bg={style.bg}
                               color={style.color}
                               onClick={() => toggleTag(d.iso, slotIdx)}
-                              onTouchStart={() => handleTouchStart(d.iso, slotIdx, tag)}
-                              onTouchEnd={handleTouchEnd}
-                              style={{ userSelect: "none" }}
+                              onContextMenu={(e) => {
+                                e.preventDefault(); // 長押しでテキスト選択やメニューを防止
+                                if (tag === "triangle") {
+                                  setEditTarget({ iso: d.iso, slotIdx });
+                                  onOpen();
+                                }
+                              }}
+                              style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}
                             </Td>
@@ -655,9 +660,6 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       <VStack align="start" spacing={2} mb={4}>
         <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
           ホームに戻る
-        </Button>
-        <Button onClick={() => onNavigate("home")} colorScheme="teal" size="sm">
-          大成功！！！
         </Button>
 
         {!showForm ? (
