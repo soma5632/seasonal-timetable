@@ -360,12 +360,13 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- 長押し判定（△セル編集用） ----
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
+  let longPressTriggered = false;
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
+      longPressTriggered = false;
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
-        // 指を置いた瞬間にタイマー開始
         touchTimer = setTimeout(() => {
-          // 600ms 経過したら即モーダルを開く
+          longPressTriggered = true;
           setEditTarget({ iso, slotIdx });
           setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
@@ -377,7 +378,9 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       if (touchTimer) {
         clearTimeout(touchTimer);
         touchTimer = null;
-        // 600ms 経過前に離した場合 → 通常タップ扱い
+      }
+      if (!longPressTriggered) {
+        // 通常タップ扱い → 〇×△切り替え
         toggleTag(iso, slotIdx);
       }
   };
@@ -400,65 +403,6 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       return { ...prev, [dateISO]: updatedDay };
     });
   };
-
-  {/* △セル編集モーダル */}
-  <Modal isOpen={isOpen} onClose={onClose} size="sm">
-    <ModalOverlay />
-    <ModalContent>
-      <ModalHeader>通常授業の生徒を選択</ModalHeader>
-      <ModalBody>
-        <VStack align="stretch" spacing={3}>
-          <SearchableNameSelector
-            label="生徒を検索して選択"
-            candidates={studentNames}
-            onSelect={(name) => {
-              if (selectedStudents.includes(name)) return;
-              if (selectedStudents.length >= 2) return; // 最大2人まで
-              setSelectedStudents([...selectedStudents, name]);
-            }}
-          />
-          <VStack align="start" spacing={1}>
-            {selectedStudents.map((s, idx) => (
-              <HStack key={idx}>
-                <Text fontSize="sm">{s}</Text>
-                <Button
-                  size="xs"
-                  onClick={() =>
-                    setSelectedStudents(selectedStudents.filter((_, i) => i !== idx))
-                  }
-                >
-                  削除
-                </Button>
-              </HStack>
-            ))}
-          </VStack>
-        </VStack>
-      </ModalBody>
-      <ModalFooter>
-        <HStack spacing={3}>
-          <Button
-            size="sm"
-            colorScheme="blue"
-            onClick={() => {
-              if (!editTarget) return;
-              const { iso, slotIdx } = editTarget;
-              setScheduleByDate((prev) => {
-                const updated = { ...(prev[iso] || {}) };
-                updated[slotIdx] = { tag: "triangle", students: selectedStudents };
-                return { ...prev, [iso]: updated };
-              });
-              onClose();
-            }}
-          >
-            保存
-          </Button>
-          <Button size="sm" onClick={onClose}>
-            キャンセル
-          </Button>
-        </HStack>
-      </ModalFooter>
-    </ModalContent>
-  </Modal>
 
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
@@ -649,6 +593,64 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
             一覧に戻る
           </Button>
         </Box>
+        {/* △セル編集モーダル */}
+        <Modal isOpen={isOpen} onClose={onClose} size="sm">
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>通常授業の生徒を選択</ModalHeader>
+              <ModalBody>
+                <VStack align="stretch" spacing={3}>
+                  <SearchableNameSelector
+                    label="生徒を検索して選択"
+                    candidates={studentNames}
+                    onSelect={(name) => {
+                      if (selectedStudents.includes(name)) return;
+                      if (selectedStudents.length >= 2) return; // 最大2人まで
+                      setSelectedStudents([...selectedStudents, name]);
+                    }}
+                  />
+                  <VStack align="start" spacing={1}>
+                    {selectedStudents.map((s, idx) => (
+                      <HStack key={idx}>
+                        <Text fontSize="sm">{s}</Text>
+                        <Button
+                          size="xs"
+                          onClick={() =>
+                            setSelectedStudents(selectedStudents.filter((_, i) => i !== idx))
+                          }
+                        >
+                          削除
+                        </Button>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </VStack>
+              </ModalBody>
+              <ModalFooter>
+                <HStack spacing={3}>
+                  <Button
+                    size="sm"
+                    colorScheme="blue"
+                    onClick={() => {
+                      if (!editTarget) return;
+                      const { iso, slotIdx } = editTarget;
+                      setScheduleByDate((prev) => {
+                        const updated = { ...(prev[iso] || {}) };
+                        updated[slotIdx] = { tag: "triangle", students: selectedStudents };
+                        return { ...prev, [iso]: updated };
+                      });
+                      onClose();
+                    }}
+                  >
+                    保存
+                  </Button>
+                  <Button size="sm" onClick={onClose}>
+                    キャンセル
+                  </Button>
+                </HStack>
+              </ModalFooter>
+            </ModalContent>
+        </Modal>
       </Box>
     );
   }
