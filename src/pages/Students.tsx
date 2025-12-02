@@ -5,7 +5,7 @@ import {
 } from "@chakra-ui/react";
 import { useUserData } from "../hooks/useUserData";
 import SearchableNameSelector from "../components/SearchableNameSelector";
-import { Teacher, Term, Student } from "../types";
+import { Teacher, Term } from "../types";
 
 type ScheduleItem = {
   date: [number, number]; // (month, day)
@@ -62,7 +62,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
   // NG講師
   const [newNgTeacher, setNewNgTeacher] = useState("");
   const [searchNgTeacher, setSearchNgTeacher] = useState("");
-  const teacherNames = userData?.teachers?.map(t => t.name) ?? [];
+  const teacherNames = (userData?.teachers?.map((t: Teacher) => t.name)) ?? [];
 
   // ターム選択
   const [selectedTermId, setSelectedTermId] = useState<string>("");
