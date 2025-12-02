@@ -99,6 +99,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
         }
       }
   }, [userData]);
+
   // ---- Subjects ----
   const addSubject = () => {
     if (!selectedStudent || !newSubject || newCount === "" || newCount <= 0) return;
@@ -143,6 +144,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
 
     saveUserData({ students: newStudents });
   };
+
   // ---- Camera ----
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,6 +183,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
 
       saveUserData({ students: updated });
   };
+
   // ---- AI推定処理 ----
   const normalizeTime = (t: string) => {
     return t.replace("-", "〜");
@@ -386,13 +389,13 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
       const newStudents = students.map(s => (s.id === updated.id ? updated : s));
       setStudents(newStudents);
       setSelectedStudent(updated);
-
       saveUserData({ students: newStudents });
   };
 
   useEffect(() => {
     return () => stopCamera();
   }, []);
+
   // ---- Render ----
   if (selectedStudent) {
     return (

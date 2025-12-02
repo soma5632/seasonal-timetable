@@ -706,6 +706,11 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                             Object.keys(prev).forEach(dateISO => {
                               const d = new Date(dateISO);
                               if (d.getDay() === targetWeekday) {
+                                const currentValue = prev[dateISO]?.[slotIdx];
+                                if (currentValue === "closed") {
+                                  // 休セルは変更しない
+                                  return;
+                                }
                                 updated[dateISO] = {
                                   ...(prev[dateISO] || {}),
                                   [slotIdx]: { tag: "triangle", students: selectedStudents }
