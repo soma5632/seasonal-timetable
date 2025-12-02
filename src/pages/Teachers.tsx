@@ -688,52 +688,44 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       size="sm"
                       colorScheme="blue"
                       onClick={() => {
-                        if (!editTarget) return;
-                        const { iso, slotIdx } = editTarget;
+                          if (!editTarget || !selectedTeacher) return;
+                          const { iso, slotIdx } = editTarget;
+                          const targetWeekday = new Date(iso).getDay();
 
-                        setScheduleByDate((prev) => {
-                          const updated = { ...prev };
+                          // 全タームに反映
+                          const updatedSchedules: typeof selectedTeacher.schedules = {};
 
-                          if (applyOnlyThisDay) {
-                            // この日だけ更新
-                            updated[iso] = {
-                              ...(prev[iso] || {}),
-                              [slotIdx]: { tag: "triangle", students: selectedStudents }
-                            };
-                          } else {
-                            // 同じ曜日すべて更新
-                            const targetWeekday = new Date(iso).getDay();
+                          Object.entries(selectedTeacher.schedules).forEach(([termId, termSchedule]) => {
+                            const updatedTerm = { ...termSchedule };
 
-                            setTeachers(prevTeachers => {
-                              return prevTeachers.map(t => {
-                                if (t.id !== selectedTeacher?.id) return t;
+                            Object.keys(termSchedule).forEach(dateISO => {
+                              const d = new Date(dateISO);
+                              if (applyOnlyThisDay && dateISO !== iso) return;
+                              if (!applyOnlyThisDay && d.getDay() !== targetWeekday) return;
 
-                                const updatedSchedules: typeof t.schedules = {};
+                              const currentValue = termSchedule[dateISO]?.[slotIdx];
+                              if (currentValue === "closed") return; // 休セルは変更しない
 
-                                Object.entries(t.schedules).forEach(([termId, termSchedule]) => {
-                                  const updatedTermSchedule = { ...termSchedule };
-
-                                  Object.keys(termSchedule).forEach(dateISO => {
-                                    const d = new Date(dateISO);
-                                    if (d.getDay() === targetWeekday) {
-                                      const currentValue = termSchedule[dateISO]?.[slotIdx];
-                                      if (currentValue === "closed") return; // 休セルは変更しない
-
-                                      updatedTermSchedule[dateISO] = {
-                                        ...(termSchedule[dateISO] || {}),
-                                        [slotIdx]: { tag: "triangle", students: selectedStudents }
-                                      };
-                                    }
-                                  });
-                                  updatedSchedules[termId] = updatedTermSchedule;
-                                });
-                                return { ...t, schedules: updatedSchedules };
-                              });
+                              updatedTerm[dateISO] = {
+                                ...(termSchedule[dateISO] || {}),
+                                [slotIdx]: { tag: "triangle", students: selectedStudents }
+                              };
                             });
-                          }
-                          return updated;
-                        });
-                        onClose();
+
+                            updatedSchedules[termId] = updatedTerm;
+                          });
+
+                          const updatedTeacher: Teacher = {
+                            ...selectedTeacher,
+                            schedules: updatedSchedules
+                          };
+
+                          const newTeachers = teachers.map(t => (t.id === updatedTeacher.id ? updatedTeacher : t));
+                          setTeachers(newTeachers);
+                          setSelectedTeacher(updatedTeacher);
+                          saveUserData({ teachers: newTeachers });
+
+                          onClose();
                       }}
                     >
                       保存
