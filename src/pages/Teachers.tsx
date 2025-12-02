@@ -293,6 +293,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       console.error("Upload/Inference failed:", err);
     }
   };
+
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
     if (!selectedTermId || !selectedTeacher) return;
@@ -359,13 +360,12 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- 長押し判定（△セル編集用） ----
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressTriggered = false;
 
   const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
-      longPressTriggered = false;
       if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
+        // 指を置いた瞬間にタイマー開始
         touchTimer = setTimeout(() => {
-          longPressTriggered = true;
+          // 600ms 経過したら即モーダルを開く
           setEditTarget({ iso, slotIdx });
           setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
           onOpen();
@@ -377,9 +377,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       if (touchTimer) {
         clearTimeout(touchTimer);
         touchTimer = null;
-      }
-      if (!longPressTriggered) {
-        // 通常タップ扱い
+        // 600ms 経過前に離した場合 → 通常タップ扱い
         toggleTag(iso, slotIdx);
       }
   };
