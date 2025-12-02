@@ -4,6 +4,8 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Accordion, AccordionItem, AccordionButton, AccordionPanel,
 } from "@chakra-ui/react";
 import { useUserData } from "../hooks/useUserData";
+import SearchableNameSelector from "../components/SearchableNameSelector";
+import { Teacher, Term, Student } from "../types";
 
 type ScheduleItem = {
   date: [number, number]; // (month, day)
@@ -60,6 +62,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
   // NG講師
   const [newNgTeacher, setNewNgTeacher] = useState("");
   const [searchNgTeacher, setSearchNgTeacher] = useState("");
+  const teacherNames = userData?.teachers?.map(t => t.name) ?? [];
 
   // ターム選択
   const [selectedTermId, setSelectedTermId] = useState<string>("");
@@ -289,6 +292,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
         console.error("Upload/Inference failed:", err);
       }
   };
+
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
     if (!selectedTermId || !selectedStudent) return;
@@ -428,7 +432,7 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
         <VStack align="start" spacing={2} mt={2}>
           <SearchableNameSelector
             label="NG講師を検索して追加"
-            candidates={userData?.teachers?.map(t => t.name) ?? []}
+            candidates={teacherNames}
             value={searchNgTeacher}
             onChange={setSearchNgTeacher}
             onSelect={(name) => {
@@ -448,9 +452,9 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
             }}
           />
           <VStack align="start" mt={2}>
-            {selectedStudent.ngTeachers.map((t, idx) => (
+            {selectedStudent.ngTeachers.map((teacher, idx) => (
               <HStack key={idx}>
-                <Text fontSize="sm">{t}</Text>
+                <Text fontSize="sm">{teacher}</Text>
                 <Button size="xs" onClick={() => removeNgTeacher(idx)}>削除</Button>
               </HStack>
             ))}
