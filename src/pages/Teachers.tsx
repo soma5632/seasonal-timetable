@@ -703,25 +703,36 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                           } else {
                             // 同じ曜日すべて更新
                             const targetWeekday = new Date(iso).getDay();
-                            Object.keys(prev).forEach(dateISO => {
-                              const d = new Date(dateISO);
-                              if (d.getDay() === targetWeekday) {
-                                const currentValue = prev[dateISO]?.[slotIdx];
-                                if (currentValue === "closed") {
-                                  // 休セルは変更しない
-                                  return;
-                                }
-                                updated[dateISO] = {
-                                  ...(prev[dateISO] || {}),
-                                  [slotIdx]: { tag: "triangle", students: selectedStudents }
-                                };
-                              }
+
+                            setTeachers(prevTeachers => {
+                              return prevTeachers.map(t => {
+                                if (t.id !== selectedTeacher?.id) return t;
+
+                                const updatedSchedules: typeof t.schedules = {};
+
+                                Object.entries(t.schedules).forEach(([termId, termSchedule]) => {
+                                  const updatedTermSchedule = { ...termSchedule };
+
+                                  Object.keys(termSchedule).forEach(dateISO => {
+                                    const d = new Date(dateISO);
+                                    if (d.getDay() === targetWeekday) {
+                                      const currentValue = termSchedule[dateISO]?.[slotIdx];
+                                      if (currentValue === "closed") return; // 休セルは変更しない
+
+                                      updatedTermSchedule[dateISO] = {
+                                        ...(termSchedule[dateISO] || {}),
+                                        [slotIdx]: { tag: "triangle", students: selectedStudents }
+                                      };
+                                    }
+                                  });
+                                  updatedSchedules[termId] = updatedTermSchedule;
+                                });
+                                return { ...t, schedules: updatedSchedules };
+                              });
                             });
                           }
-
                           return updated;
                         });
-
                         onClose();
                       }}
                     >
