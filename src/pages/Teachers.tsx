@@ -358,23 +358,34 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   };
 
   // ---- 長押し判定（△セル編集用） ----
-  let touchTimer: ReturnType<typeof setTimeout>;
-  const handleTouchStart = (iso: string, slotIdx: number, tag: any) => {
-    if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
-      touchTimer = setTimeout(() => {
-        setEditTarget({ iso, slotIdx });
-        if (typeof tag === "object" && tag.students) {
-          setSelectedStudents(tag.students);
-        } else {
-          setSelectedStudents([]);
-        }
-        onOpen();
-      }, 600); // 600ms 長押しで判定
-    }
+  let touchTimer: ReturnType<typeof setTimeout> | null = null;
+  let longPressTriggered = false;
+
+  const handlePointerDown = (iso: string, slotIdx: number, tag: any) => {
+      longPressTriggered = false;
+      if ((typeof tag === "string" && tag === "triangle") || (typeof tag === "object" && tag.tag === "triangle")) {
+        touchTimer = setTimeout(() => {
+          longPressTriggered = true;
+          setEditTarget({ iso, slotIdx });
+          if (typeof tag === "object" && tag.students) {
+            setSelectedStudents(tag.students);
+          } else {
+            setSelectedStudents([]);
+          }
+          onOpen();
+        }, 600); // 600ms 長押しで判定
+      }
   };
 
-  const handleTouchEnd = () => {
-    clearTimeout(touchTimer);
+  const handlePointerUp = (iso: string, slotIdx: number) => {
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+      if (!longPressTriggered) {
+        // 通常タップ扱い → 〇×△切り替え
+        toggleTag(iso, slotIdx);
+      }
   };
 
   // ---- 日付クリックで一括切替 ----
@@ -616,16 +627,8 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               cursor="pointer"
                               bg={style.bg}
                               color={style.color}
-                              onClick={() => toggleTag(d.iso, slotIdx)}
-                              onPointerDown={(e) => {
-                                if (tag === "triangle") {
-                                  touchTimer = setTimeout(() => {
-                                    setEditTarget({ iso: d.iso, slotIdx });
-                                    onOpen();
-                                  }, 600);
-                                }
-                              }}
-                              onPointerUp={() => clearTimeout(touchTimer)}
+                              onPointerDown={() => handlePointerDown(d.iso, slotIdx, tag)}
+                              onPointerUp={() => handlePointerUp(d.iso, slotIdx)}
                               style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                             >
                               {style.symbol}
