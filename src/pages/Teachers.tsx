@@ -78,6 +78,26 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
 
+  const getWeekday = (iso: string) => {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d).getDay(); // ローカルタイム基準
+  };
+
+  // タームの開始〜終了（JST、日曜除外）でISO配列を作る
+    const buildIsoDatesForTerm = (t: Term) => {
+      const [ys, ms, ds] = t.startDate.split("-").map(Number);
+      const [ye, me, de] = t.endDate.split("-").map(Number);
+      const start = new Date(ys, ms - 1, ds);
+      const end = new Date(ye, me - 1, de);
+      const list: string[] = [];
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        if (dt.getDay() === 0) continue; // 日曜除外
+        const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+        list.push(iso);
+      }
+      return list;
+  };
+
   // 生徒候補一覧（名前のみ）
   const studentNames = userData?.students?.map((s: Student) => s.name) ?? [];
   useEffect(() => {
@@ -418,21 +438,21 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- 日付クリックで一括切替 ----
   const toggleDay = (dateISO: string) => {
-    setScheduleByDate(prev => {
-      const updatedDay = { ...(prev[dateISO] || {}) };
-      const order = ["blank","×","triangle"];
-      const firstTag = Object.values(updatedDay).find(t => t !== "closed") || "blank";
-      const next = order[(order.indexOf(firstTag) + 1) % order.length];
+      setScheduleByDate(prev => {
+        const updatedDay = { ...(prev[dateISO] || {}) };
+        const order = ["blank","×","triangle"];
+        const first = Object.values(updatedDay).find(t => t !== "closed") ?? "blank";
+        const currentTag = typeof first === "object" ? first.tag : first;
+        const next = order[(order.indexOf(currentTag) + 1) % order.length];
 
-      Object.keys(updatedDay).forEach(idxStr => {
-        const idx = Number(idxStr);
-        if (updatedDay[idx] !== "closed") {
-          updatedDay[idx] = next;
-        }
+        Object.keys(updatedDay).forEach(idxStr => {
+          const idx = Number(idxStr);
+          if (updatedDay[idx] === "closed") return;
+          updatedDay[idx] = next === "triangle" ? { tag: "triangle", students: [] } : next;
+        });
+
+        return { ...prev, [dateISO]: updatedDay };
       });
-
-      return { ...prev, [dateISO]: updatedDay };
-    });
   };
 
   const parseISOLocal = (iso: string) => {
@@ -706,35 +726,105 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       size="sm"
                       colorScheme="blue"
                       onClick={() => {
-                          if (!editTarget || !selectedTeacher || !selectedTermId) return;
-                          const { iso, slotIdx } = editTarget;
-                          const targetWeekday = parseISOLocal(iso).getDay();
+                        if (!editTarget || !selectedTeacher || !selectedTermId) return;
+                        const { iso, slotIdx } = editTarget;
+                        const targetWeekday = getWeekday(iso);
 
-                          // 1) 表示中 scheduleByDate を更新
-                          setScheduleByDate(prev => {
-                            const updated = { ...prev };
-                            Object.keys(prev).forEach(dateISO => {
-                              const d = parseISOLocal(dateISO);
-                              const isTarget = applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
-                              if (!isTarget) return;
-                              if (prev[dateISO]?.[slotIdx] === "closed") return;
+                        // スナップショット用の新 schedules（全ターム適用）
+                        const nextSchedules: Teacher["schedules"] = { ...selectedTeacher.schedules };
 
-                              updated[dateISO] = {
-                                ...(prev[dateISO] || {}),
-                                [slotIdx]: { tag: "triangle", students: selectedStudents },
-                              };
-                            });
-                            return updated;
+                        terms.forEach(term => {
+                          const termId = term.id;
+                          const termSchedule = nextSchedules[termId] ?? {};
+                          const closed = term.closedSlots ?? {};
+
+                          // 適用対象日付一覧（このタームの期間）
+                          const dates = buildIsoDatesForTerm(term);
+
+                          dates.forEach(dateISO => {
+                            // 適用条件
+                            const isTargetDay = applyOnlyThisDay
+                              ? (termId === selectedTermId && dateISO === iso) // この日だけは選択タームの対象日だけ
+                              : (getWeekday(dateISO) === targetWeekday);      // 同じ曜日の全ターム
+
+                            if (!isTargetDay) return;
+
+                            // 閉校スロットは変更しない
+                            if ((closed[dateISO] ?? []).includes(slotIdx)) return;
+
+                            // 日付エントリを用意
+                            const currentDay = termSchedule[dateISO] ?? {};
+
+                            const currentVal = currentDay[slotIdx];
+                            if (currentVal === "closed") return; // 念のため
+
+                            // 三角オブジェクトで書く
+                            currentDay[slotIdx] = { tag: "triangle", students: selectedStudents };
+                            termSchedule[dateISO] = currentDay;
                           });
 
-                          // 2) 保存処理を呼ぶ
-                          setTimeout(() => {
-                            saveSchedule();
-                            onClose();
-                          }, 0);
+                          nextSchedules[termId] = termSchedule;
+                        });
+
+                        // 画面用：現在選択タームの表示にも反映
+                        setScheduleByDate(prev => {
+                          const updated = { ...prev };
+                          Object.entries(nextSchedules[selectedTermId] ?? {}).forEach(([dISO, slots]) => {
+                            updated[dISO] = { ...(updated[dISO] ?? {}) };
+                            // その日のその枠だけ更新（他の枠は既存のまま）
+                            if (typeof slots[slotIdx] === "object" && slots[slotIdx].tag === "triangle") {
+                              updated[dISO][slotIdx] = { tag: "triangle", students: selectedStudents };
+                            }
+                          });
+                          return updated;
+                        });
+
+                        // 永続化（正規化：closedは保存しない）
+                        const normalizedForSelected: Record<string, Record<number, any>> = {};
+                        Object.entries(nextSchedules[selectedTermId] ?? {}).forEach(([dISO, slots]) => {
+                          normalizedForSelected[dISO] = {};
+                          Object.entries(slots).forEach(([idxStr, val]) => {
+                            const idx = Number(idxStr);
+                            if (typeof val === "object" && val.tag === "triangle") {
+                              normalizedForSelected[dISO][idx] = { tag: "triangle", students: val.students ?? [] };
+                            } else if (typeof val === "string" && val !== "closed") {
+                              normalizedForSelected[dISO][idx] = val;
+                            }
+                          });
+                        });
+
+                        // 全ターム分を保存（selectedTermId 以外も正規化して保存）
+                        const allNormalized: Teacher["schedules"] = {};
+                        Object.keys(nextSchedules).forEach(termId => {
+                          const termSchedule = nextSchedules[termId] ?? {};
+                          const norm: Record<string, Record<number, any>> = {};
+                          Object.entries(termSchedule).forEach(([dISO, slots]) => {
+                            norm[dISO] = {};
+                            Object.entries(slots).forEach(([idxStr, val]) => {
+                              const idx = Number(idxStr);
+                              if (typeof val === "object" && val.tag === "triangle") {
+                                norm[dISO][idx] = { tag: "triangle", students: val.students ?? [] };
+                              } else if (typeof val === "string" && val !== "closed") {
+                                norm[dISO][idx] = val;
+                              }
+                            });
+                          });
+                          allNormalized[termId] = norm;
+                        });
+
+                        const updatedTeacher: Teacher = {
+                          ...selectedTeacher,
+                          schedules: allNormalized,
+                        };
+                        const newTeachers = teachers.map(t => (t.id === updatedTeacher.id ? updatedTeacher : t));
+                        setTeachers(newTeachers);
+                        setSelectedTeacher(updatedTeacher);
+                        saveUserData({ teachers: newTeachers });
+
+                        onClose();
                       }}
                   >
-                      保存
+                   保存
                   </Button>
                   <Button size="sm" onClick={onClose}>
                     キャンセル
