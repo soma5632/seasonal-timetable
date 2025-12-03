@@ -330,16 +330,32 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- セル編集ロジック ----
   const toggleTag = (dateISO: string, slotIdx: number) => {
-    setScheduleByDate(prev => {
-      const current = prev[dateISO]?.[slotIdx] || "blank";
-      if (current === "closed") return prev; // ★ 閉校セルは編集不可
-      const order = ["blank", "×", "triangle"];
-      const next = order[(order.indexOf(current) + 1) % order.length];
-      return {
-        ...prev,
-        [dateISO]: { ...(prev[dateISO] || {}), [slotIdx]: next },
-      };
-    });
+      setScheduleByDate(prev => {
+        const raw = prev[dateISO]?.[slotIdx] ?? "blank";
+
+        // 閉校は編集不可
+        if (raw === "closed") return prev;
+
+        // オブジェクト△は tag を現在値として扱う
+        const current = typeof raw === "object" ? raw.tag : raw;
+        const order = ["blank", "×", "triangle"];
+        const next = order[(order.indexOf(current) + 1) % order.length];
+
+        // 次が triangle の場合、既存がオブジェクト△なら students を維持
+        let nextValue: any = next;
+        if (next === "triangle") {
+          if (typeof raw === "object" && raw.tag === "triangle") {
+            nextValue = { tag: "triangle", students: raw.students ?? [] };
+          } else {
+            nextValue = { tag: "triangle", students: [] };
+          }
+        }
+
+        return {
+          ...prev,
+          [dateISO]: { ...(prev[dateISO] || {}), [slotIdx]: nextValue },
+        };
+      });
   };
 
   // ---- 長押し判定（△セル編集用） ----
@@ -696,45 +712,41 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       size="sm"
                       colorScheme="blue"
                       onClick={() => {
-                          if (!editTarget || !selectedTeacher) return;
-                          const { iso, slotIdx } = editTarget;
-                          const targetWeekday = new Date(iso).getDay();
+                        if (!editTarget || !selectedTeacher || !selectedTermId) return;
+                        const { iso, slotIdx } = editTarget;
+                        const targetWeekday = new Date(iso).getDay();
 
-                          const updatedSchedules: typeof selectedTeacher.schedules = {};
+                        // 1) 画面状態（scheduleByDate）を更新：このタームの同じ曜日・同じ時間へ反映
+                        setScheduleByDate(prev => {
+                          const updated = { ...prev };
 
-                          Object.entries(selectedTeacher.schedules).forEach(([termId, termSchedule]) => {
-                            const updatedTerm = { ...termSchedule };
+                          Object.keys(prev).forEach(dateISO => {
+                            const d = new Date(dateISO);
+                            const isTarget =
+                              applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
 
-                            Object.keys(termSchedule).forEach(dateISO => {
-                              const d = new Date(dateISO);
-                              if (applyOnlyThisDay && dateISO !== iso) return;
-                              if (!applyOnlyThisDay && d.getDay() !== targetWeekday) return;
+                            if (!isTarget) return;
 
-                              const currentValue = termSchedule[dateISO]?.[slotIdx];
-                              if (currentValue === "closed") return; // 閉校セルは変更しない
+                            const currentValue = prev[dateISO]?.[slotIdx];
+                            if (currentValue === "closed") return; // 閉校は変更しない
 
-                              updatedTerm[dateISO] = {
-                                ...(termSchedule[dateISO] || {}),
-                                [slotIdx]: { tag: "triangle", students: selectedStudents }
-                              };
-                            });
-
-                            updatedSchedules[termId] = updatedTerm;
+                            updated[dateISO] = {
+                              ...(prev[dateISO] || {}),
+                              [slotIdx]: { tag: "triangle", students: selectedStudents },
+                            };
                           });
 
-                          const updatedTeacher: Teacher = {
-                            ...selectedTeacher,
-                            schedules: updatedSchedules
-                          };
+                          return updated;
+                        });
 
-                          const newTeachers = teachers.map(t => (t.id === updatedTeacher.id ? updatedTeacher : t));
-                          setTeachers(newTeachers);
-                          setSelectedTeacher(updatedTeacher);
-                          saveUserData({ teachers: newTeachers });
-
+                        // 2) 画面更新後に永続化（selectedTeacher.schedules[selectedTermId]へ）
+                        //    既存の saveSchedule() が scheduleByDate -> Teacher.schedules へ変換して保存してくれる
+                        setTimeout(() => {
+                          saveSchedule();
                           onClose();
+                        }, 0);
                       }}
-                    >
+                  >
                       保存
                   </Button>
                   <Button size="sm" onClick={onClose}>
