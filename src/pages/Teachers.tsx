@@ -450,14 +450,12 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         Object.entries(slots).forEach(([slotIdxStr, value]) => {
           const slotIdx = Number(slotIdxStr);
 
-          if (typeof value === "object") {
-            // △セルなどオブジェクト型は必ず保存
+          if (typeof value === "object" && value.tag === "triangle") {
             normalized[iso][slotIdx] = {
-              tag: value.tag,
+              tag: "triangle",
               students: value.students || []
             };
-          } else if (value !== "closed") {
-            // 〇や×はそのまま保存、closed は保存しない
+          } else if (typeof value === "string" && value !== "closed") {
             normalized[iso][slotIdx] = value;
           }
         });
@@ -712,39 +710,34 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       size="sm"
                       colorScheme="blue"
                       onClick={() => {
-                        if (!editTarget || !selectedTeacher || !selectedTermId) return;
-                        const { iso, slotIdx } = editTarget;
-                        const targetWeekday = new Date(iso).getDay();
+                          if (!editTarget || !selectedTeacher || !selectedTermId) return;
+                          const { iso, slotIdx } = editTarget;
+                          const targetWeekday = new Date(iso).getDay();
 
-                        // 1) 画面状態（scheduleByDate）を更新：このタームの同じ曜日・同じ時間へ反映
-                        setScheduleByDate(prev => {
-                          const updated = { ...prev };
+                          // 1) 表示中 scheduleByDate を更新
+                          setScheduleByDate(prev => {
+                            const updated = { ...prev };
+                            Object.keys(prev).forEach(dateISO => {
+                              const d = new Date(dateISO);
+                              const isTarget =
+                                applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
 
-                          Object.keys(prev).forEach(dateISO => {
-                            const d = new Date(dateISO);
-                            const isTarget =
-                              applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
+                              if (!isTarget) return;
+                              if (prev[dateISO]?.[slotIdx] === "closed") return;
 
-                            if (!isTarget) return;
-
-                            const currentValue = prev[dateISO]?.[slotIdx];
-                            if (currentValue === "closed") return; // 閉校は変更しない
-
-                            updated[dateISO] = {
-                              ...(prev[dateISO] || {}),
-                              [slotIdx]: { tag: "triangle", students: selectedStudents },
-                            };
+                              updated[dateISO] = {
+                                ...(prev[dateISO] || {}),
+                                [slotIdx]: { tag: "triangle", students: selectedStudents },
+                              };
+                            });
+                            return updated;
                           });
 
-                          return updated;
-                        });
-
-                        // 2) 画面更新後に永続化（selectedTeacher.schedules[selectedTermId]へ）
-                        //    既存の saveSchedule() が scheduleByDate -> Teacher.schedules へ変換して保存してくれる
-                        setTimeout(() => {
-                          saveSchedule();
-                          onClose();
-                        }, 0);
+                          // 2) 保存処理を呼ぶ
+                          setTimeout(() => {
+                            saveSchedule();
+                            onClose();
+                          }, 0);
                       }}
                   >
                       保存
