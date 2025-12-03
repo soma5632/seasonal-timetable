@@ -450,38 +450,14 @@ export default function TermManager({ onNavigate, currentUserId }: TermManagerPr
                   saveUserData({
                       terms: {
                         ...(userData?.terms || {}),
-                        [termName]: payload,
+                        [termName]: {
+                          termName,
+                          startDate: startDateTerm,
+                          endDate: endDateTerm,
+                          closedSlots: closedSlotsByDate,
+                        },
                       },
                       lastSelectedTermName: termName,
-
-                      // ★ teachers に閉校情報を反映
-                      teachers: (userData?.teachers || []).map((t: Teacher) => {
-                          const updatedSchedules = { ...t.schedules };
-                          const closedSlots = payload.closedSlots || {};
-                          if (updatedSchedules[termName]) {
-                            Object.keys(updatedSchedules[termName]).forEach(dateISO => {
-                              const slots = updatedSchedules[termName][dateISO];
-                              closedSlots[dateISO]?.forEach(slotIdx => {
-                                slots[slotIdx] = "closed";
-                              });
-                            });
-                          }
-                          return { ...t, schedules: updatedSchedules };
-                      }),
-
-                      students: (userData?.students || []).map((s: Student) => {
-                          const updatedSchedules = { ...s.schedules };
-                          const closedSlots = payload.closedSlots || {};
-                          if (updatedSchedules[termName]) {
-                            Object.keys(updatedSchedules[termName]).forEach(dateISO => {
-                              const slots = updatedSchedules[termName][dateISO];
-                              closedSlots[dateISO]?.forEach(slotIdx => {
-                                slots[slotIdx] = "closed";
-                              });
-                            });
-                          }
-                          return { ...s, schedules: updatedSchedules };
-                      }),
                   });
 
                   toast({

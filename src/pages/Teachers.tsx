@@ -274,52 +274,58 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
-    if (!selectedTermId || !selectedTeacher) return;
+      if (!selectedTermId || !selectedTeacher) return;
 
-    const term = terms.find(t => t.id === selectedTermId);
-    if (!term) return;
+      const term = terms.find(t => t.id === selectedTermId);
+      if (!term) return;
 
-    const start = new Date(term.startDate);
-    const end = new Date(term.endDate);
+      const start = new Date(term.startDate);
+      const end = new Date(term.endDate);
 
-    const empty: { [iso: string]: { [slotIdx: number]: any } } = {};
-    const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
+      const empty: { [iso: string]: { [slotIdx: number]: any } } = {};
+      const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
 
-    const weekdayJa = ["日","月","火","水","木","金","土"];
+      const weekdayJa = ["日","月","火","水","木","金","土"];
 
-    let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
-    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      if (dt.getDay() === 0) continue; // ★ 日曜はスキップ
+      let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        if (dt.getDay() === 0) continue; // ★ 日曜はスキップ
 
-      const iso = dt.toISOString().split("T")[0];
-      empty[iso] = {};
-      timeSlots.forEach((_, idx) => {
-        empty[iso][idx] = "blank";
-      });
+        const iso = dt.toISOString().split("T")[0];
+        empty[iso] = {};
+        timeSlots.forEach((_, idx) => {
+          empty[iso][idx] = "blank";
+        });
 
-      // ★ 閉校情報を反映
-      const closed = term.closedSlots?.[iso] || [];
-      closed.forEach(slotIdx => {
-        empty[iso][slotIdx] = "closed"; // 特別タグ closed
-      });
+        currentWeek.push({
+          iso,
+          label: `${dt.getMonth() + 1}/${dt.getDate()}`,
+          weekdayJa: weekdayJa[dt.getDay()],
+        });
 
-      currentWeek.push({
-        iso,
-        label: `${dt.getMonth() + 1}/${dt.getDate()}`,
-        weekdayJa: weekdayJa[dt.getDay()],
-      });
-
-      if (dt.getDay() === 6) { // ★ 土曜で週区切り
-        weeks.push({ dates: currentWeek });
-        currentWeek = [];
+        if (dt.getDay() === 6) {
+          weeks.push({ dates: currentWeek });
+          currentWeek = [];
+        }
       }
-    }
-    if (currentWeek.length > 0) weeks.push({ dates: currentWeek });
+      if (currentWeek.length > 0) weeks.push({ dates: currentWeek });
 
-    const existing = selectedTeacher.schedules[selectedTermId];
-    setScheduleByDate(existing || empty);
-    setWeekBlocks(weeks);
-    setDateRangeValid(true);
+      const existing = selectedTeacher.schedules[selectedTermId] || {};
+      const merged: { [iso: string]: { [slotIdx: number]: any } } = {};
+
+      Object.keys(empty).forEach(iso => {
+        merged[iso] = { ...empty[iso], ...(existing[iso] || {}) };
+
+        // ★ 閉校情報を反映
+        const closed = term.closedSlots?.[iso] || [];
+        closed.forEach(slotIdx => {
+          merged[iso][slotIdx] = "closed";
+        });
+      });
+
+      setScheduleByDate(merged);
+      setWeekBlocks(weeks);
+      setDateRangeValid(true);
   }, [selectedTermId, selectedTeacher]);
 
   // ---- セル編集ロジック ----
@@ -419,37 +425,36 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
-    if (!selectedTeacher || !selectedTermId) return;
+      if (!selectedTeacher || !selectedTermId) return;
 
-    // scheduleByDate の中身を正規化
-    const normalized: Record<string, Record<number, any>> = {};
-
-    Object.entries(scheduleByDate).forEach(([iso, slots]) => {
-      normalized[iso] = {};
-      Object.entries(slots).forEach(([slotIdxStr, value]) => {
-        const slotIdx = Number(slotIdxStr);
-        if (typeof value === "object" && value.tag === "triangle") {
-          normalized[iso][slotIdx] = {
-            tag: "triangle",
-            students: value.students || []
-          };
-        } else {
-          normalized[iso][slotIdx] = value;
-        }
+      const normalized: Record<string, Record<number, any>> = {};
+      Object.entries(scheduleByDate).forEach(([iso, slots]) => {
+        normalized[iso] = {};
+        Object.entries(slots).forEach(([slotIdxStr, value]) => {
+          const slotIdx = Number(slotIdxStr);
+          if (typeof value === "object" && value.tag === "triangle") {
+            normalized[iso][slotIdx] = {
+              tag: "triangle",
+              students: value.students || []
+            };
+          } else if (value !== "closed") {
+            // ★ closed は保存しない
+            normalized[iso][slotIdx] = value;
+          }
+        });
       });
-    });
 
-    const updated: Teacher = {
-      ...selectedTeacher,
-      schedules: { ...selectedTeacher.schedules, [selectedTermId]: normalized }
-    };
+      const updated: Teacher = {
+        ...selectedTeacher,
+        schedules: { ...selectedTeacher.schedules, [selectedTermId]: normalized }
+      };
 
-    const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
-    setTeachers(newTeachers);
-    setSelectedTeacher(updated);
-
-    saveUserData({ teachers: newTeachers });
+      const newTeachers = teachers.map(t => (t.id === updated.id ? updated : t));
+      setTeachers(newTeachers);
+      setSelectedTeacher(updated);
+      saveUserData({ teachers: newTeachers });
   };
+
   // ---- Render ----
   if (selectedTeacher) {
     return (

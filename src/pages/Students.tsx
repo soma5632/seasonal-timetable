@@ -298,52 +298,58 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
 
   // ---- ターム選択時に週ごとブロック生成（月〜土のみ＋閉校反映） ----
   useEffect(() => {
-    if (!selectedTermId || !selectedStudent) return;
+      if (!selectedTermId || !selectedStudent) return;
 
-    const term = terms.find(t => t.id === selectedTermId);
-    if (!term) return;
+      const term = terms.find(t => t.id === selectedTermId);
+      if (!term) return;
 
-    const start = new Date(term.startDate);
-    const end = new Date(term.endDate);
+      const start = new Date(term.startDate);
+      const end = new Date(term.endDate);
 
-    const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
-    const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
+      const empty: { [iso: string]: { [slotIdx: number]: string } } = {};
+      const weeks: { dates: { iso: string; label: string; weekdayJa: string }[] }[] = [];
 
-    const weekdayJa = ["日","月","火","水","木","金","土"];
+      const weekdayJa = ["日","月","火","水","木","金","土"];
 
-    let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
-    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      if (dt.getDay() === 0) continue; // ★ 日曜はスキップ
+      let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        if (dt.getDay() === 0) continue;
 
-      const iso = dt.toISOString().split("T")[0];
-      empty[iso] = {};
-      timeSlots.forEach((_, idx) => {
-        empty[iso][idx] = "blank";
-      });
+        const iso = dt.toISOString().split("T")[0];
+        empty[iso] = {};
+        timeSlots.forEach((_, idx) => {
+          empty[iso][idx] = "blank";
+        });
 
-      // ★ 閉校情報を反映
-      const closed = term.closedSlots?.[iso] || [];
-      closed.forEach(slotIdx => {
-        empty[iso][slotIdx] = "closed"; // 特別タグ closed
-      });
+        currentWeek.push({
+          iso,
+          label: `${dt.getMonth() + 1}/${dt.getDate()}`,
+          weekdayJa: weekdayJa[dt.getDay()],
+        });
 
-      currentWeek.push({
-        iso,
-        label: `${dt.getMonth() + 1}/${dt.getDate()}`,
-        weekdayJa: weekdayJa[dt.getDay()],
-      });
-
-      if (dt.getDay() === 6) { // ★ 土曜で週区切り
-        weeks.push({ dates: currentWeek });
-        currentWeek = [];
+        if (dt.getDay() === 6) {
+          weeks.push({ dates: currentWeek });
+          currentWeek = [];
+        }
       }
-    }
-    if (currentWeek.length > 0) weeks.push({ dates: currentWeek });
+      if (currentWeek.length > 0) weeks.push({ dates: currentWeek });
 
-    const existing = selectedStudent.schedules[selectedTermId];
-    setScheduleByDate(existing || empty);
-    setWeekBlocks(weeks);
-    setDateRangeValid(true);
+      const existing = selectedStudent.schedules[selectedTermId] || {};
+      const merged: { [iso: string]: { [slotIdx: number]: string } } = {};
+
+      Object.keys(empty).forEach(iso => {
+        merged[iso] = { ...empty[iso], ...(existing[iso] || {}) };
+
+        // ★ 閉校情報を反映
+        const closed = term.closedSlots?.[iso] || [];
+        closed.forEach(slotIdx => {
+          merged[iso][slotIdx] = "closed";
+        });
+      });
+
+      setScheduleByDate(merged);
+      setWeekBlocks(weeks);
+      setDateRangeValid(true);
   }, [selectedTermId, selectedStudent]);
 
   // ---- セル編集ロジック ----
@@ -382,9 +388,22 @@ export default function Students({ onNavigate, currentUserId }: StudentsProps) {
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
       if (!selectedStudent || !selectedTermId) return;
+
+      const normalized: Record<string, Record<number, string>> = {};
+      Object.entries(scheduleByDate).forEach(([iso, slots]) => {
+        normalized[iso] = {};
+        Object.entries(slots).forEach(([slotIdxStr, value]) => {
+          const slotIdx = Number(slotIdxStr);
+          if (value !== "closed") {
+            // ★ closed は保存しない
+            normalized[iso][slotIdx] = value;
+          }
+        });
+      });
+
       const updated = {
         ...selectedStudent,
-        schedules: { ...selectedStudent.schedules, [selectedTermId]: scheduleByDate }
+        schedules: { ...selectedStudent.schedules, [selectedTermId]: normalized }
       };
       const newStudents = students.map(s => (s.id === updated.id ? updated : s));
       setStudents(newStudents);
