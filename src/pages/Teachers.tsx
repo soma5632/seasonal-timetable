@@ -289,7 +289,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
 
       let currentWeek: { iso: string; label: string; weekdayJa: string }[] = [];
       for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-        if (dt.getDay() === 0) continue; // ★ 日曜はスキップ
+        if (dt.getDay() === 0) continue; // 日曜はスキップ
 
         const iso = dt.toISOString().split("T")[0];
         empty[iso] = {};
@@ -367,7 +367,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
         longPressTriggeredRef.current = true;
         setEditTarget({ iso, slotIdx });
         setSelectedStudents(typeof tag === "object" && tag.students ? tag.students : []);
-        onOpen(); // モーダル開く
+        onOpen(); // 開く
       }, 600);
   };
 
@@ -428,17 +428,20 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
       if (!selectedTeacher || !selectedTermId) return;
 
       const normalized: Record<string, Record<number, any>> = {};
+
       Object.entries(scheduleByDate).forEach(([iso, slots]) => {
         normalized[iso] = {};
         Object.entries(slots).forEach(([slotIdxStr, value]) => {
           const slotIdx = Number(slotIdxStr);
-          if (typeof value === "object" && value.tag === "triangle") {
+
+          if (typeof value === "object") {
+            // △セルなどオブジェクト型は必ず保存
             normalized[iso][slotIdx] = {
-              tag: "triangle",
+              tag: value.tag,
               students: value.students || []
             };
           } else if (value !== "closed") {
-            // ★ closed は保存しない
+            // 〇や×はそのまま保存、closed は保存しない
             normalized[iso][slotIdx] = value;
           }
         });
@@ -697,7 +700,6 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                           const { iso, slotIdx } = editTarget;
                           const targetWeekday = new Date(iso).getDay();
 
-                          // 全タームに反映
                           const updatedSchedules: typeof selectedTeacher.schedules = {};
 
                           Object.entries(selectedTeacher.schedules).forEach(([termId, termSchedule]) => {
@@ -709,7 +711,7 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                               if (!applyOnlyThisDay && d.getDay() !== targetWeekday) return;
 
                               const currentValue = termSchedule[dateISO]?.[slotIdx];
-                              if (currentValue === "closed") return; // 休セルは変更しない
+                              if (currentValue === "closed") return; // 閉校セルは変更しない
 
                               updatedTerm[dateISO] = {
                                 ...(termSchedule[dateISO] || {}),
