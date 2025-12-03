@@ -332,16 +332,12 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
   const toggleTag = (dateISO: string, slotIdx: number) => {
       setScheduleByDate(prev => {
         const raw = prev[dateISO]?.[slotIdx] ?? "blank";
-
-        // 閉校は編集不可
         if (raw === "closed") return prev;
 
-        // オブジェクト△は tag を現在値として扱う
         const current = typeof raw === "object" ? raw.tag : raw;
         const order = ["blank", "×", "triangle"];
         const next = order[(order.indexOf(current) + 1) % order.length];
 
-        // 次が triangle の場合、既存がオブジェクト△なら students を維持
         let nextValue: any = next;
         if (next === "triangle") {
           if (typeof raw === "object" && raw.tag === "triangle") {
@@ -439,22 +435,22 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
     });
   };
 
+  const parseISOLocal = (iso: string) => {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d); // ローカルタイムで生成
+  };
+
   // ---- スケジュール保存 ----
   const saveSchedule = () => {
       if (!selectedTeacher || !selectedTermId) return;
 
       const normalized: Record<string, Record<number, any>> = {};
-
       Object.entries(scheduleByDate).forEach(([iso, slots]) => {
         normalized[iso] = {};
         Object.entries(slots).forEach(([slotIdxStr, value]) => {
           const slotIdx = Number(slotIdxStr);
-
           if (typeof value === "object" && value.tag === "triangle") {
-            normalized[iso][slotIdx] = {
-              tag: "triangle",
-              students: value.students || []
-            };
+            normalized[iso][slotIdx] = { tag: "triangle", students: value.students || [] };
           } else if (typeof value === "string" && value !== "closed") {
             normalized[iso][slotIdx] = value;
           }
@@ -712,16 +708,14 @@ export default function Teachers({ onNavigate, currentUserId }: TeachersProps) {
                       onClick={() => {
                           if (!editTarget || !selectedTeacher || !selectedTermId) return;
                           const { iso, slotIdx } = editTarget;
-                          const targetWeekday = new Date(iso).getDay();
+                          const targetWeekday = parseISOLocal(iso).getDay();
 
                           // 1) 表示中 scheduleByDate を更新
                           setScheduleByDate(prev => {
                             const updated = { ...prev };
                             Object.keys(prev).forEach(dateISO => {
-                              const d = new Date(dateISO);
-                              const isTarget =
-                                applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
-
+                              const d = parseISOLocal(dateISO);
+                              const isTarget = applyOnlyThisDay ? (dateISO === iso) : (d.getDay() === targetWeekday);
                               if (!isTarget) return;
                               if (prev[dateISO]?.[slotIdx] === "closed") return;
 
