@@ -23,6 +23,7 @@ import {
   SliderFilledTrack,
   SliderThumb,
   Spinner,
+  FormLabel,
 } from "@chakra-ui/react";
 import EditLessonModal from "../components/EditLessonModal";
 import { useUserData } from "../hooks/useUserData";
@@ -444,6 +445,29 @@ export default function TimetableManager({
 
   return (
     <Box p={4}>
+
+      {/* ===== ターム選択 UI ===== */}
+      <Box mb={4}>
+          <FormLabel>表示するターム</FormLabel>
+          <Select
+            value={selectedTermName}
+            onChange={(e) => {
+              const termName = e.target.value;
+              setSelectedTermName(termName);
+              const t = userData?.terms?.[termName];
+              if (t) {
+                setTermStartISO(t.startDate || "");
+                setTermEndISO(t.endDate || "");
+              }
+            }}
+          >
+            {termOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+      </Box>
 
       {/* ===== プレビュー ===== */}
       <Heading size="md" mb={2}>生成結果プレビュー（編集可）</Heading>
