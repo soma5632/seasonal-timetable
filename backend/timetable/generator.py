@@ -58,141 +58,104 @@ def generate_teacher_blocks(teacher_availability, min_block_len=3):
 # =========================
 
 def assign_students_to_blocks(
-    teacher_blocks: List[Dict[str, Any]],
-    students: List[Dict[str, Any]],
-    student_availability: Dict[Any, Dict[str, Dict[str, str]]],
-    ng_pairs: Set[Tuple[Any, Any]],
-    max_lessons_per_day: int = 2,
-    use_scoring: bool = True,
-    context: Dict[str, Any] = None,
-) -> List[Dict[str, Any]]:
-    """
-    各先生ブロックに対して、生徒を割り当てる（1:1または1:2）。
-    - NG関係を除外
-    - 生徒の1日最大2コマ制限を守る
-    - 2コマなら連続必須（※本実装では「slotごとの独立」で、最初はゆるめにスタートしてもOK）
-    - △は授業あり扱い（teacher_availability で考慮済み想定）
+    teacher_blocks,
+    students,
+    student_availability,
+    ng_pairs,
+    max_lessons_per_day=2,
+    use_scoring=True,
+    context=None,
+):
+    try:
+        lessons = []
+        student_day_usage = {}
+        students_by_id = {s["id"]: s for s in students}
 
-    teacher_blocks: generate_teacher_blocks の出力
-    students: userData.students の配列
-    student_availability:
-        student_id -> date_iso -> { slotIdx(str): tag("blank"/"×"/"triangle"/"△") }
-    ng_pairs:
-        {(teacherId, studentId), (studentId, teacherId), ...}
+        if context is None:
+            context = {}
+        context.setdefault("students", students)
 
-    Returns:
-        lessons: List[
-          {
-            "teacherId": ...,
-            "studentIds": [...],
-            "date": date_iso,
-            "slotIdx": int,
-            "boothIdx": None,  # 後で assign_booths で埋める
-          }
-        ]
-    """
-    lessons: List[Dict[str, Any]] = []
-    # student_day_usage[student_id][date_iso] = その日の割当コマ数
-    student_day_usage: Dict[Any, Dict[str, int]] = {}
+        for block in teacher_blocks:
+            teacher_id = block["teacherId"]
+            date = block["date"]
+            start = block["startSlot"]
+            end = block["endSlot"]
 
-    # 生徒を id -> オブジェクト の辞書にしておく（スコアリングなどで参照しやすくする）
-    students_by_id: Dict[Any, Dict[str, Any]] = {s["id"]: s for s in students}
+            for slot in range(start, end + 1):
+                candidate_lessons = []
 
-    # コンテキストが指定されていなければ初期化
-    if context is None:
-        context = {}
-    context.setdefault("students", students)
-    # 必要なら teacherSchedules なども context に入れておく
+                # 1:2 の候補
+                for s1 in students:
+                    sid1 = s1["id"]
 
-    for block in teacher_blocks:
-        teacher_id = block["teacherId"]
-        date = block["date"]
-        start = block["startSlot"]
-        end = block["endSlot"]
-
-        for slot in range(start, end + 1):
-            # この枠に割り当てる候補をスコア付きで列挙する
-            candidate_lessons: List[Tuple[float, Dict[str, Any]]] = []
-
-            # まず 1:2 の候補
-            for s1 in students:
-                sid1 = s1["id"]
-
-                # NG or availability or capacityチェック
-                if is_ng_pair(teacher_id, sid1, ng_pairs):
-                    continue
-                if not is_available(sid1, date, slot, student_availability):
-                    continue
-                if not has_capacity(sid1, date, student_day_usage, max_per_day=max_lessons_per_day):
-                    continue
-
-                for s2 in students:
-                    sid2 = s2["id"]
-                    if sid1 == sid2:
+                    if is_ng_pair(teacher_id, sid1, ng_pairs):
+                        continue
+                    if not is_available(sid1, date, slot, student_availability):
+                        continue
+                    if not has_capacity(sid1, date, student_day_usage, max_per_day=max_lessons_per_day):
                         continue
 
-                    if is_ng_pair(teacher_id, sid2, ng_pairs):
+                    for s2 in students:
+                        sid2 = s2["id"]
+                        if sid1 == sid2:
+                            continue
+
+                        if is_ng_pair(teacher_id, sid2, ng_pairs):
+                            continue
+                        if not is_available(sid2, date, slot, student_availability):
+                            continue
+                        if not has_capacity(sid2, date, student_day_usage, max_per_day=max_lessons_per_day):
+                            continue
+
+                        lesson = {
+                            "teacherId": teacher_id,
+                            "studentIds": [sid1, sid2],
+                            "date": date,
+                            "slotIdx": slot,
+                            "boothIdx": None,
+                        }
+
+                        sc = score_lesson(lesson, context) if use_scoring else 0.0
+                        candidate_lessons.append((sc, lesson))
+
+                # 1:1 の候補
+                for s1 in students:
+                    sid1 = s1["id"]
+
+                    if is_ng_pair(teacher_id, sid1, ng_pairs):
                         continue
-                    if not is_available(sid2, date, slot, student_availability):
+                    if not is_available(sid1, date, slot, student_availability):
                         continue
-                    if not has_capacity(sid2, date, student_day_usage, max_per_day=max_lessons_per_day):
+                    if not has_capacity(sid1, date, student_day_usage, max_per_day=max_lessons_per_day):
                         continue
 
-                    # ここまで来たら 1:2 候補
                     lesson = {
                         "teacherId": teacher_id,
-                        "studentIds": [sid1, sid2],
+                        "studentIds": [sid1],
                         "date": date,
                         "slotIdx": slot,
                         "boothIdx": None,
                     }
 
-                    if use_scoring:
-                        sc = score_lesson(lesson, context)
-                    else:
-                        sc = 0.0
+                    sc = score_lesson(lesson, context) if use_scoring else 0.0
                     candidate_lessons.append((sc, lesson))
 
-            # 1:1 の候補も追加
-            for s1 in students:
-                sid1 = s1["id"]
-
-                if is_ng_pair(teacher_id, sid1, ng_pairs):
-                    continue
-                if not is_available(sid1, date, slot, student_availability):
-                    continue
-                if not has_capacity(sid1, date, student_day_usage, max_per_day=max_lessons_per_day):
+                if not candidate_lessons:
                     continue
 
-                lesson = {
-                    "teacherId": teacher_id,
-                    "studentIds": [sid1],
-                    "date": date,
-                    "slotIdx": slot,
-                    "boothIdx": None,
-                }
-                if use_scoring:
-                    sc = score_lesson(lesson, context)
-                else:
-                    sc = 0.0
-                candidate_lessons.append((sc, lesson))
+                candidate_lessons.sort(key=lambda x: x[0], reverse=True)
+                best_score, best_lesson = candidate_lessons[0]
+                lessons.append(best_lesson)
 
-            if not candidate_lessons:
-                # 割り当て可能な生徒がいない枠はスキップ
-                continue
+                for sid in best_lesson["studentIds"]:
+                    student_day_usage.setdefault(sid, {}).setdefault(date, 0)
+                    student_day_usage[sid][date] += 1
 
-            # スコア最大の候補を採用
-            candidate_lessons.sort(key=lambda x: x[0], reverse=True)
-            best_score, best_lesson = candidate_lessons[0]
+        return lessons
 
-            lessons.append(best_lesson)
-
-            # 使用状況更新
-            for sid in best_lesson["studentIds"]:
-                student_day_usage.setdefault(sid, {}).setdefault(date, 0)
-                student_day_usage[sid][date] += 1
-
-    return lessons
+    except Exception as e:
+        print("🔥 ERROR in assign_students_to_blocks:", e, flush=True)
+        raise
 
 
 # =========================

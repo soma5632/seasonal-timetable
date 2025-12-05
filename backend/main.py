@@ -152,22 +152,19 @@ def generate_timetable():
                     student_availability[sid][date_iso] = day_slots
 
         # ===== フェーズA〜C =====
-        # print("[DEBUG] teacher_availability:", teacher_availability)
-        # print("[DEBUG] student_availability:", student_availability)
+        try:
+            teacher_blocks = generate_teacher_blocks(teacher_availability)
+            print("[DEBUG] teacher_blocks count:", len(teacher_blocks), flush=True)
 
-        teacher_blocks = generate_teacher_blocks(teacher_availability)
-        print("[DEBUG] teacher_blocks count:", len(teacher_blocks), file=sys.stderr, flush=True)
+            lessons = assign_students_to_blocks(...)
+            print("[DEBUG] lessons count:", len(lessons), flush=True)
 
-        lessons = assign_students_to_blocks(
-            teacher_blocks,
-            students,
-            student_availability,
-            ng_pairs
-        )
-        print("[DEBUG] lessons count:", len(lessons), file=sys.stderr, flush=True)
+            final_lessons = assign_booths(lessons)
+            print("[DEBUG] final_lessons count:", len(final_lessons), flush=True)
 
-        final_lessons = assign_booths(lessons)
-        print("[DEBUG] final_lessons count:", len(final_lessons), file=sys.stderr, flush=True)
+        except Exception as e:
+            print("🔥 ERROR in /timetable/generate:", e, flush=True)
+            raise
 
         return jsonify({
             "status": "ok",
