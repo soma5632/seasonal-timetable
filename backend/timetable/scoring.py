@@ -1,11 +1,10 @@
-# スコアリング関数
 def preferred_time_score(student, slot):
     grade = student.get("grade", "")
     if grade.startswith("小") and slot in [0, 1]:
-        return 5  # 小学生は午前優先
+        return 5
     if grade.startswith("中1") or grade.startswith("中2"):
         if slot in [2, 3, 4]:
-            return 5  # 中1・中2は昼優先
+            return 5
     return 0
 
 def is_adjacent_to_triangle(date, slot, teacher_schedule):
@@ -22,10 +21,12 @@ def score_lesson(lesson, context):
     date = lesson["date"]
     slot = lesson["slotIdx"]
 
-    teacher_schedule = context["teacherSchedules"].get(teacher_id, {})
+    # ✅ teacherSchedules は今の仕様に存在しないので空扱い
+    teacher_schedule = {}
+
     students = context["students"]
 
-    # △隣接
+    # △隣接（teacher_schedule が空なので常に False）
     if is_adjacent_to_triangle(date, slot, teacher_schedule):
         score += 10
 
