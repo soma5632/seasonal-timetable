@@ -146,9 +146,17 @@ def generate_timetable():
                     student_availability[sid][date_iso] = day_slots
 
         # ===== フェーズA〜C =====
+        print("[DEBUG] teacher_availability:", teacher_availability)
+        print("[DEBUG] student_availability:", student_availability)
+
         teacher_blocks = generate_teacher_blocks(teacher_availability)
+        print("[DEBUG] teacher_blocks count:", len(teacher_blocks))
+
         lessons = assign_students_to_blocks(teacher_blocks, students, student_availability, ng_pairs)
+        print("[DEBUG] lessons count:", len(lessons))
+
         final_lessons = assign_booths(lessons)
+        print("[DEBUG] final_lessons count:", len(final_lessons))
 
         return jsonify({
             "status": "ok",
