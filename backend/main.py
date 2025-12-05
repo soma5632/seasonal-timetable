@@ -156,7 +156,12 @@ def generate_timetable():
             teacher_blocks = generate_teacher_blocks(teacher_availability)
             print("[DEBUG] teacher_blocks count:", len(teacher_blocks), flush=True)
 
-            lessons = assign_students_to_blocks(...)
+            lessons = assign_students_to_blocks(
+                teacher_blocks,
+                students,
+                student_availability,
+                ng_pairs
+            )
             print("[DEBUG] lessons count:", len(lessons), flush=True)
 
             final_lessons = assign_booths(lessons)
