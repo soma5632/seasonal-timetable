@@ -10,7 +10,7 @@ import json
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://souma-lab.com"]}})
 
-# ===== ユーザデータ保存・取得用ヘルパー =====
+# ===== ユーザデータ保存・取得 =====
 def get_user_data_path(user_id):
     os.makedirs("userdata", exist_ok=True)
     return os.path.join("userdata", f"{user_id}.json")
@@ -32,7 +32,6 @@ def load_user_data(user_id):
 def upload_schedule():
     try:
         file = request.files.get("file")
-        student_id = request.form.get("student_id")
         start_date = request.form.get("start_date")
         end_date = request.form.get("end_date")
 
@@ -63,12 +62,7 @@ def upload_schedule():
         img_cropped = img.crop((left, top, right, bottom))
         img_cropped.save(filepath)
 
-        print(f"[DEBUG] Cropped image saved at {filepath}")
-
-        # 推定処理
         schedule_map = run_inference(filepath, start_date, end_date)
-        print(f"[DEBUG] Inference result: {schedule_map}")
-
         if schedule_map is None:
             return jsonify({
                 "status": "error",
@@ -90,53 +84,68 @@ def generate_timetable():
         if not user_id:
             return jsonify({"error": "Missing userId"}), 400
 
-        # ユーザデータを取得
+        # ユーザデータ取得
         user_data = load_user_data(user_id)
         teachers = user_data.get("teachers", [])
-        terms = user_data.get("terms", {})
         students = user_data.get("students", [])
 
+        # dict → list 正規化
         if isinstance(teachers, dict):
             teachers = list(teachers.values())
         if isinstance(students, dict):
             students = list(students.values())
 
-        # 先生の出勤枠
-        teacher_availability = {}
-        for t in teachers:
-            teacher_id = t.get("id")
-            schedule = t.get("schedules", {})
-            teacher_availability[teacher_id] = {}
-            for term_id, term_schedule in schedule.items():
-                for date_iso, slots in term_schedule.items():
-                    teacher_availability[teacher_id].setdefault(date_iso, [None]*10)
-                    for slot_idx, tag in slots.items():
-                        teacher_availability[teacher_id][date_iso][int(slot_idx)] = tag
+        # ===== NG関係（名前 → ID に変換） =====
+        name_to_id = {s["name"]: s["id"] for s in students}
 
-        # 生徒の出勤枠
-        student_availability = {}
-        for s in students:
-            sid = s.get("id")
-            schedule = s.get("schedules", {})
-            student_availability[sid] = {}
-            for term_id, term_schedule in schedule.items():
-                for date_iso, slots in term_schedule.items():
-                    student_availability[sid].setdefault(date_iso, {})
-                    for slot_idx, tag in slots.items():
-                        student_availability[sid][date_iso][str(slot_idx)] = tag
-
-        # NG関係
         ng_pairs = set()
         for t in teachers:
-            tid = t.get("id")
-            for ng in t.get("ngStudents", []):
-                ng_pairs.add((tid, ng))
-        for s in students:
-            sid = s.get("id")
-            for ng in s.get("ngTeachers", []):
-                ng_pairs.add((ng, sid))
+            tid = t["id"]
+            for ng_name in t.get("ngStudents", []):
+                sid = name_to_id.get(ng_name)
+                if sid:
+                    ng_pairs.add((tid, sid))
 
-        # フェーズA〜C
+        for s in students:
+            sid = s["id"]
+            for ng_name in s.get("ngTeachers", []):
+                # 先生の名前 → ID
+                tid = None
+                for t in teachers:
+                    if t["name"] == ng_name:
+                        tid = t["id"]
+                        break
+                if tid:
+                    ng_pairs.add((tid, sid))
+
+        # ===== 先生の出勤枠 =====
+        teacher_availability = {}
+        for t in teachers:
+            tid = t["id"]
+            teacher_availability[tid] = {}
+
+            for term_id, term_schedule in t.get("schedules", {}).items():
+                for date_iso, slots in term_schedule.items():
+                    # 10コマを None で初期化（参照コピーしない）
+                    day_slots = [None] * 10
+                    for slot_idx, tag in slots.items():
+                        day_slots[int(slot_idx)] = tag
+                    teacher_availability[tid][date_iso] = day_slots
+
+        # ===== 生徒の出勤枠 =====
+        student_availability = {}
+        for s in students:
+            sid = s["id"]
+            student_availability[sid] = {}
+
+            for term_id, term_schedule in s.get("schedules", {}).items():
+                for date_iso, slots in term_schedule.items():
+                    day_slots = {}
+                    for slot_idx, tag in slots.items():
+                        day_slots[str(slot_idx)] = tag
+                    student_availability[sid][date_iso] = day_slots
+
+        # ===== フェーズA〜C =====
         teacher_blocks = generate_teacher_blocks(teacher_availability)
         lessons = assign_students_to_blocks(teacher_blocks, students, student_availability, ng_pairs)
         final_lessons = assign_booths(lessons)
@@ -151,36 +160,36 @@ def generate_timetable():
         print(f"[ERROR] /timetable/generate: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ===== ユーザデータ保存API =====
+# ===== ユーザデータ保存 =====
 @app.route("/userdata/save", methods=["POST"])
-def save_userdata():
+def save_userdata_api():
     try:
         body = request.get_json()
         user_id = body.get("userId")
         if not user_id:
             return jsonify({"error": "Missing userId"}), 400
+
         save_user_data(user_id, body)
         return jsonify({"status": "ok"})
     except Exception as e:
         print(f"[ERROR] /userdata/save: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ===== ユーザデータ取得API =====
+# ===== ユーザデータ取得 =====
 @app.route("/userdata/load", methods=["GET"])
-def load_userdata():
+def load_userdata_api():
     try:
         user_id = request.args.get("userId")
         if not user_id:
             return jsonify({"error": "Missing userId"}), 400
+
         data = load_user_data(user_id)
 
-        # 正規化（teachers/students が dict でも配列で返す）
-        t = data.get("teachers", [])
-        s = data.get("students", [])
-        if isinstance(t, dict):
-            data["teachers"] = list(t.values())
-        if isinstance(s, dict):
-            data["students"] = list(s.values())
+        # dict → list 正規化
+        if isinstance(data.get("teachers"), dict):
+            data["teachers"] = list(data["teachers"].values())
+        if isinstance(data.get("students"), dict):
+            data["students"] = list(data["students"].values())
 
         return jsonify(data)
     except Exception as e:
