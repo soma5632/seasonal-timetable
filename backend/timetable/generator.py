@@ -58,14 +58,14 @@ def generate_teacher_blocks(teacher_availability, min_block_len=3):
 # =========================
 
 def assign_students_to_blocks(
-    teacher_blocks: List[Dict[str, Any]],
-    students: List[Dict[str, Any]],
-    student_availability: Dict[Any, Dict[str, Dict[str, str]]],
-    ng_pairs: Set[Tuple[Any, Any]],
-    max_lessons_per_day: int = 2,
-    use_scoring: bool = True,
-    context: Dict[str, Any] = None,
-) -> List[Dict[str, Any]]:
+    teacher_blocks,
+    students,
+    student_availability,
+    ng_pairs,
+    max_lessons_per_day=2,
+    use_scoring=True,
+    context=None,
+):
 
     try:
         lessons: List[Dict[str, Any]] = []
