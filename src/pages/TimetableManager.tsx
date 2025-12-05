@@ -712,29 +712,38 @@ export default function TimetableManager({
 
       {/* ===== 編集モーダル ===== */}
       <EditLessonModal
-        isOpen={isOpen}
-        onClose={() => {
-          onClose();
-          setEditing(null);
-        }}
-        onSave={handleSaveLesson}
-        teacherOptions={
-          (Array.isArray(userData?.teachers)
-            ? userData.teachers
-            : Object.values(userData?.teachers ?? {})
-          ).map((t: any) => t.id)
-        }
-        studentOptions={
-          (Array.isArray(userData?.students)
-            ? userData.students
-            : Object.values(userData?.students ?? {})
-          ).map((s: any) => s.id)
-        }
-        initialData={
-          editing
-            ? getInitialLesson(editing.date, editing.slot, editing.booth)
-            : null
-        }
+          isOpen={isOpen}
+          onClose={() => {
+            onClose();
+            setEditing(null);
+          }}
+          onSave={handleSaveLesson}
+
+          teacherOptions={
+            (Array.isArray(userData?.teachers)
+              ? userData.teachers
+              : Object.values(userData?.teachers ?? {})
+            ).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+            }))
+          }
+
+          studentOptions={
+            (Array.isArray(userData?.students)
+              ? userData.students
+              : Object.values(userData?.students ?? {})
+            ).map((s: any) => ({
+              id: s.id,
+              name: s.name,
+            }))
+          }
+
+          initialData={
+            editing
+              ? getInitialLesson(editing.date, editing.slot, editing.booth)
+              : null
+          }
       />
 
     </Box>

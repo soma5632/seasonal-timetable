@@ -21,9 +21,8 @@ type Props = {
   onClose: () => void;
   onSave: (lesson: Lesson) => void;
 
-  // ✅ TimetableManager から渡されるのは string[]（ID の配列）
-  teacherOptions?: string[];
-  studentOptions?: string[];
+  teacherOptions?: { id: string; name: string }[];
+  studentOptions?: { id: string; name: string }[];
 
   initialData?: Lesson | null;
 };
@@ -73,32 +72,26 @@ export default function EditLessonModal({
                       {/* 先生 */}
             <FormControl>
               <FormLabel>先生</FormLabel>
-              <Select
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-              >
-                <option value="">未選択</option>
-                {teacherOptions.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
+              <Select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+                  <option value="">未選択</option>
+                  {teacherOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
               </Select>
             </FormControl>
 
             {/* 生徒 */}
             <FormControl>
               <FormLabel>生徒</FormLabel>
-              <Select
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-              >
-                <option value="">未選択</option>
-                {studentOptions.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
+              <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+                  <option value="">未選択</option>
+                  {studentOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
               </Select>
             </FormControl>
 
