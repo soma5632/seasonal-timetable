@@ -456,9 +456,9 @@ export default function TimetableManager({
   return (
     <Box p={4}>
     　<Heading size="lg" mb={2}>ターム管理</Heading>
-        <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
+      <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
           ホームに戻る
-        </Button>
+      </Button>
 
       {/* ===== ターム選択 UI ===== */}
       <Box mb={4}>
