@@ -15,10 +15,12 @@ def get_user_data_path(user_id):
     os.makedirs("userdata", exist_ok=True)
     return os.path.join("userdata", f"{user_id}.json")
 
+
 def save_user_data(user_id, data):
     path = get_user_data_path(user_id)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 def load_user_data(user_id):
     path = get_user_data_path(user_id)
@@ -126,9 +128,12 @@ def generate_timetable():
 
             for term_id, term_schedule in t.get("schedules", {}).items():
                 for date_iso, slots in term_schedule.items():
-                    # 10コマを None で初期化（参照コピーしない）
+                    # 10コマを None で初期化
                     day_slots = [None] * 10
                     for slot_idx, tag in slots.items():
+                        # dict の場合は tag["tag"] を取り出す（triangle など）
+                        if isinstance(tag, dict):
+                            tag = tag.get("tag")
                         day_slots[int(slot_idx)] = tag
                     teacher_availability[tid][date_iso] = day_slots
 
@@ -152,7 +157,12 @@ def generate_timetable():
         teacher_blocks = generate_teacher_blocks(teacher_availability)
         print("[DEBUG] teacher_blocks count:", len(teacher_blocks))
 
-        lessons = assign_students_to_blocks(teacher_blocks, students, student_availability, ng_pairs)
+        lessons = assign_students_to_blocks(
+            teacher_blocks,
+            students,
+            student_availability,
+            ng_pairs
+        )
         print("[DEBUG] lessons count:", len(lessons))
 
         final_lessons = assign_booths(lessons)
