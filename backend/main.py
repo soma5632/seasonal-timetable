@@ -6,6 +6,7 @@ import os
 from PIL import Image
 import math
 import json
+import sys
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://souma-lab.com"]}})
@@ -155,7 +156,7 @@ def generate_timetable():
         # print("[DEBUG] student_availability:", student_availability)
 
         teacher_blocks = generate_teacher_blocks(teacher_availability)
-        print("[DEBUG] teacher_blocks count:", len(teacher_blocks))
+        print("[DEBUG] teacher_blocks count:", len(teacher_blocks), file=sys.stderr, flush=True)
 
         lessons = assign_students_to_blocks(
             teacher_blocks,
@@ -163,10 +164,10 @@ def generate_timetable():
             student_availability,
             ng_pairs
         )
-        print("[DEBUG] lessons count:", len(lessons))
+        print("[DEBUG] lessons count:", len(lessons), file=sys.stderr, flush=True)
 
         final_lessons = assign_booths(lessons)
-        print("[DEBUG] final_lessons count:", len(final_lessons))
+        print("[DEBUG] final_lessons count:", len(final_lessons), file=sys.stderr, flush=True)
 
         return jsonify({
             "status": "ok",
