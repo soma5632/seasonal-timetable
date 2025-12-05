@@ -153,6 +153,7 @@ export default function TimetableManager({
 }: TimetableManagerProps) {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const [closedSlotsByDate, setClosedSlotsByDate] = useState<{ [iso: string]: number[] }>({});
 
   // ✅ userData 読み込み
   const { userData, saveUserData } = useUserData(currentUserId);
@@ -188,19 +189,19 @@ export default function TimetableManager({
       tt[date][slot] = tt[date][slot] || {};
 
       tt[date][slot][booth] = {
-        id: `${date}-${slot}-${booth}`,
-        startTime: timeSlots[slot].split("〜")[0],
-        endTime: timeSlots[slot].split("〜")[1],
+      id: `${date}-${slot}-${booth}`,
+      startTime: timeSlots[slot].split("〜")[0],
+      endTime: timeSlots[slot].split("〜")[1],
+      subject: "",
+      teacherId: l.teacherId,
+      studentId: l.studentIds[0] || "",
+      boothIndex: booth,
+      students: (l.studentIds || []).map((sid) => ({
+        name: studentMap[sid] ?? sid,
         subject: "",
-        teacherId: teacherMap[l.teacherId] ?? l.teacherId,
-        studentId: studentMap[l.studentIds[0]] ?? l.studentIds[0],
-        boothIndex: booth,
-        students: (l.studentIds || []).map((sid) => ({
-          name: studentMap[sid] ?? sid,
-          subject: "",
-        })),
-        subjects: [],
-      };
+      })),
+      subjects: [],
+    };
 
       // 空ブース埋め
       for (let b = 0; b < BOOTH_COUNT; b++) {
@@ -269,6 +270,7 @@ export default function TimetableManager({
       const t = userData.terms![defaultTerm];
       setTermStartISO(t.startDate || "");
       setTermEndISO(t.endDate || "");
+      setClosedSlotsByDate(t.closedSlots || {});
     } else {
       const first = termOptions[0];
       if (first && userData.terms?.[first]) {
@@ -382,6 +384,14 @@ export default function TimetableManager({
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
+      toast({
+          title: "デバッグ",
+          description: `finalLessons: ${data.finalLessons?.length ?? 0}件`,
+          status: "info",
+          duration: 2000,
+      });
+
+
       const finalLessons: FinalLesson[] = data.finalLessons ?? [];
       const preview = lessonsToTimetable(finalLessons);
       setTimetablePreview(preview);
@@ -458,6 +468,7 @@ export default function TimetableManager({
               if (t) {
                 setTermStartISO(t.startDate || "");
                 setTermEndISO(t.endDate || "");
+                setClosedSlotsByDate(t.closedSlots || {});
               }
             }}
           >
@@ -476,7 +487,7 @@ export default function TimetableManager({
             onClick={generateTimetable}
             isLoading={loading}
           >
-            時間割を生成する
+            {selectedTermName} の時間割を生成する
           </Button>
       </Box>
 
@@ -543,7 +554,7 @@ export default function TimetableManager({
       </Box>
 
       {/* ===== プレビュー ===== */}
-      <Heading size="md" mb={2}>生成結果プレビュー（編集可）</Heading>
+      <Heading size="md" mb={2}>{selectedTermName} の生成結果プレビュー</Heading>
 
       {!dateRangeValid && (
         <Text fontSize="sm" color="red.600">
@@ -577,18 +588,27 @@ export default function TimetableManager({
                       </Td>
 
                       {block.dates.map((d) => {
-                        const booths = new Array(BOOTH_COUNT)
-                          .fill(null)
-                          .map(
-                            (_, b) =>
-                              timetablePreview[d.iso]?.[slotIdx]?.[b] || null
-                          );
+                          const isClosed =
+                            (closedSlotsByDate[d.iso] || []).includes(slotIdx);
 
-                        return (
-                          <Td key={`${d.iso}-${slotIdx}`} p={2}>
-                            <VStack align="stretch" spacing={2}>
-                              {booths.map((l, boothIdx) => {
-                                const isEmpty = l === null;
+                          const booths = new Array(BOOTH_COUNT)
+                            .fill(null)
+                            .map((_, b) => timetablePreview[d.iso]?.[slotIdx]?.[b] || null);
+
+                          return (
+                            <Td
+                              key={`${d.iso}-${slotIdx}`}
+                              p={2}
+                              bg={isClosed ? "gray.200" : undefined}
+                            >
+                              {isClosed ? (
+                                <Text fontSize="xs" color="red.600">
+                                  閉校
+                                </Text>
+                              ) : (
+                                <VStack align="stretch" spacing={2}>
+                                  {booths.map((l, boothIdx) => {
+                                    const isEmpty = l === null;
 
                                 return (
                                   <HStack
@@ -658,6 +678,7 @@ export default function TimetableManager({
                                 );
                               })}
                             </VStack>
+                            )}
                           </Td>
                         );
                       })}
