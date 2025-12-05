@@ -469,6 +469,79 @@ export default function TimetableManager({
           </Select>
       </Box>
 
+      {/* ===== 時間割生成 ===== */}
+      <Box mt={4}>
+          <Button
+            colorScheme="green"
+            onClick={generateTimetable}
+            isLoading={loading}
+          >
+            時間割を生成する
+          </Button>
+      </Box>
+
+      {/* ===== 生成オプション ===== */}
+      <Box mt={6} p={4} borderWidth="1px" borderRadius="md">
+          <Heading size="sm" mb={3}>生成オプション</Heading>
+
+          <VStack align="stretch" spacing={4}>
+
+            <Checkbox
+              isChecked={allowPairLessons}
+              onChange={(e) => setAllowPairLessons(e.target.checked)}
+            >
+              ペア授業を許可する
+            </Checkbox>
+
+            <Checkbox
+              isChecked={preferElementaryMorning}
+              onChange={(e) => setPreferElementaryMorning(e.target.checked)}
+            >
+              小学生は午前を優先
+            </Checkbox>
+
+            <Checkbox
+              isChecked={preferJuniorLunch}
+              onChange={(e) => setPreferJuniorLunch(e.target.checked)}
+            >
+              中学生は昼を優先
+            </Checkbox>
+
+            <Box>
+              <Text mb={1}>前半タームの重み（1〜5）</Text>
+              <Slider
+                min={1}
+                max={5}
+                step={1}
+                value={earlyTermWeight}
+                onChange={(v) => setEarlyTermWeight(v)}
+              >
+                <SliderTrack>
+                  <SliderFilledTrack />
+                </SliderTrack>
+                <SliderThumb />
+              </Slider>
+            </Box>
+
+            <Box>
+              <Text mb={1}>バランス重視（1〜5）</Text>
+              <Slider
+                min={1}
+                max={5}
+                step={1}
+                value={balanceWeight}
+                onChange={(v) => setBalanceWeight(v)}
+              >
+                <SliderTrack>
+                  <SliderFilledTrack />
+                </SliderTrack>
+                <SliderThumb />
+              </Slider>
+            </Box>
+
+          </VStack>
+      </Box>
+
       {/* ===== プレビュー ===== */}
       <Heading size="md" mb={2}>生成結果プレビュー（編集可）</Heading>
 
