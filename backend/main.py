@@ -151,8 +151,8 @@ def generate_timetable():
                     student_availability[sid][date_iso] = day_slots
 
         # ===== フェーズA〜C =====
-        # print("[DEBUG] teacher_availability:", teacher_availability)
-        # print("[DEBUG] student_availability:", student_availability)
+        print("[DEBUG] teacher_availability:", teacher_availability)
+        print("[DEBUG] student_availability:", student_availability)
 
         teacher_blocks = generate_teacher_blocks(teacher_availability)
         print("[DEBUG] teacher_blocks count:", len(teacher_blocks))

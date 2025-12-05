@@ -13,53 +13,44 @@ from .scoring import score_lesson
 # フェーズA: 先生ブロック生成
 # =========================
 
-def generate_teacher_blocks(
-    teacher_availability: Dict[Any, Dict[str, List[Any]]],
-    min_block_len: int = 3,
-) -> List[Dict[str, Any]]:
-    """
-    各先生の日付ごとの連続出勤ブロック（△含む）を抽出する。
-    teacher_availability:
-        teacher_id -> date_iso -> [tag0, tag1, ..., tag9]
-        tag は "blank" / "×" / "△" / None などを想定
-    Returns:
-        List[ { "teacherId", "date", "startSlot", "endSlot" } ]
-    """
-    blocks: List[Dict[str, Any]] = []
+def generate_teacher_blocks(teacher_availability, min_block_len=3):
+    blocks = []
+    try:
+        for teacher_id, day_map in teacher_availability.items():
+            for date_iso, slots in day_map.items():
+                start = None
+                for i, tag in enumerate(slots):
 
-    for teacher_id, day_map in teacher_availability.items():
-        for date_iso, slots in day_map.items():
-            # slots: 長さ10のリスト
-            start = None
-            for i, tag in enumerate(slots):
-                if tag in ("blank", "△", "triangle"):
-                    if start is None:
-                        start = i
-                else:
-                    # 連続が途切れたら、ブロックとして確定
-                    if start is not None and i - start >= min_block_len:
-                        blocks.append(
-                            {
+                    # None を安全に扱う
+                    if tag is None:
+                        tag = "×"
+
+                    if tag in ("blank", "△", "triangle"):
+                        if start is None:
+                            start = i
+                    else:
+                        if start is not None and i - start >= min_block_len:
+                            blocks.append({
                                 "teacherId": teacher_id,
                                 "date": date_iso,
                                 "startSlot": start,
                                 "endSlot": i - 1,
-                            }
-                        )
-                    start = None
+                            })
+                        start = None
 
-            # 最後まで続いていた場合
-            if start is not None and len(slots) - start >= min_block_len:
-                blocks.append(
-                    {
+                if start is not None and len(slots) - start >= min_block_len:
+                    blocks.append({
                         "teacherId": teacher_id,
                         "date": date_iso,
                         "startSlot": start,
                         "endSlot": len(slots) - 1,
-                    }
-                )
+                    })
 
-    return blocks
+        return blocks
+
+    except Exception as e:
+        print("🔥 ERROR in generate_teacher_blocks:", e)
+        raise
 
 
 # =========================
