@@ -32,7 +32,7 @@ def generate_teacher_blocks(
             # slots: 長さ10のリスト
             start = None
             for i, tag in enumerate(slots):
-                if tag in ("blank", "△"):
+                if tag in ("blank", "△", "triangle"):
                     if start is None:
                         start = i
                 else:
