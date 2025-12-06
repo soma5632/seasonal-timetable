@@ -260,26 +260,16 @@ export default function TimetableManager({
 
   // ===== タームの詳細をロード =====
   useEffect(() => {
-    if (!userData) return;
+      if (!userData) return;
 
-    const last = userData.lastSelectedTermName;
-    const defaultTerm = last && userData.terms?.[last] ? last : "";
-
-    if (defaultTerm) {
-      setSelectedTermName(defaultTerm);
-      const t = userData.terms![defaultTerm];
-      setTermStartISO(t.startDate || "");
-      setTermEndISO(t.endDate || "");
-      setClosedSlotsByDate(t.closedSlots || {});
-    } else {
       const first = termOptions[0];
       if (first && userData.terms?.[first]) {
         setSelectedTermName(first);
         const t = userData.terms[first];
         setTermStartISO(t.startDate || "");
         setTermEndISO(t.endDate || "");
+        setClosedSlotsByDate(t.closedSlots || {});
       }
-    }
   }, [userData, termOptions]);
 
   useEffect(() => {
@@ -392,17 +382,14 @@ export default function TimetableManager({
 
       const finalLessons: FinalLesson[] = data.finalLessons ?? [];
 
-      // ✅ timetablePreview に反映
       const preview = lessonsToTimetable(finalLessons);
       setTimetablePreview(preview);
 
-      // ✅ ここで preview を保存する！
       saveUserData({
         timetablePreview: preview,
         timetableFinalLessons: finalLessons,
       });
 
-      // ✅ finalLessons を userData に保存
       saveUserData({
         timetableFinalLessons: finalLessons,
       });
