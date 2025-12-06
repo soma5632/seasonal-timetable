@@ -282,6 +282,12 @@ export default function TimetableManager({
     }
   }, [userData, termOptions]);
 
+  useEffect(() => {
+      if (userData?.timetablePreview) {
+        setTimetablePreview(userData.timetablePreview);
+      }
+  }, [userData]);
+
   // ===== 週ブロック生成 =====
   const weekBlocks = useMemo(() => {
     if (!termStartISO || !termEndISO) return [];
@@ -390,6 +396,12 @@ export default function TimetableManager({
       const preview = lessonsToTimetable(finalLessons);
       setTimetablePreview(preview);
 
+      // ✅ ここで preview を保存する！
+      saveUserData({
+        timetablePreview: preview,
+        timetableFinalLessons: finalLessons,
+      });
+
       // ✅ finalLessons を userData に保存
       saveUserData({
         timetableFinalLessons: finalLessons,
@@ -423,6 +435,7 @@ export default function TimetableManager({
 
         saveUserData({
           timetable: merged,
+          timetablePreview: timetablePreview,
           timetableFinalLessons: userData?.timetableFinalLessons ?? [],
         });
 
