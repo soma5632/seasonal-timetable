@@ -84,8 +84,12 @@ def generate_timetable():
     try:
         body = request.get_json()
         user_id = body.get("userId")
+        term_name = body.get("termName")
+
         if not user_id:
             return jsonify({"error": "Missing userId"}), 400
+        if not term_name:
+            return jsonify({"error": "Missing termName"}), 400
 
         # ユーザデータ取得
         user_data = load_user_data(user_id)
@@ -112,7 +116,6 @@ def generate_timetable():
         for s in students:
             sid = s["id"]
             for ng_name in s.get("ngTeachers", []):
-                # 先生の名前 → ID
                 tid = None
                 for t in teachers:
                     if t["name"] == ng_name:
@@ -121,35 +124,35 @@ def generate_timetable():
                 if tid:
                     ng_pairs.add((tid, sid))
 
-        # ===== 先生の出勤枠 =====
+        # ===== 先生の出勤枠（ターム限定） =====
         teacher_availability = {}
         for t in teachers:
             tid = t["id"]
             teacher_availability[tid] = {}
 
-            for term_id, term_schedule in t.get("schedules", {}).items():
-                for date_iso, slots in term_schedule.items():
-                    # 10コマを None で初期化
-                    day_slots = [None] * 10
-                    for slot_idx, tag in slots.items():
-                        # dict の場合は tag["tag"] を取り出す（triangle など）
-                        if isinstance(tag, dict):
-                            tag = tag.get("tag")
-                        day_slots[int(slot_idx)] = tag
-                    teacher_availability[tid][date_iso] = day_slots
+            term_schedule = t.get("schedules", {}).get(term_name, {})
 
-        # ===== 生徒の出勤枠 =====
+            for date_iso, slots in term_schedule.items():
+                day_slots = [None] * 10
+                for slot_idx, tag in slots.items():
+                    if isinstance(tag, dict):
+                        tag = tag.get("tag")
+                    day_slots[int(slot_idx)] = tag
+                teacher_availability[tid][date_iso] = day_slots
+
+        # ===== 生徒の出勤枠（ターム限定） =====
         student_availability = {}
         for s in students:
             sid = s["id"]
             student_availability[sid] = {}
 
-            for term_id, term_schedule in s.get("schedules", {}).items():
-                for date_iso, slots in term_schedule.items():
-                    day_slots = {}
-                    for slot_idx, tag in slots.items():
-                        day_slots[str(slot_idx)] = tag
-                    student_availability[sid][date_iso] = day_slots
+            term_schedule = s.get("schedules", {}).get(term_name, {})
+
+            for date_iso, slots in term_schedule.items():
+                day_slots = {}
+                for slot_idx, tag in slots.items():
+                    day_slots[str(slot_idx)] = tag
+                student_availability[sid][date_iso] = day_slots
 
         # ===== フェーズA〜C =====
         try:

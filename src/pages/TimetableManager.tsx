@@ -472,7 +472,7 @@ export default function TimetableManager({
 
   return (
     <Box p={4}>
-    　<Heading size="lg" mb={2}>管理</Heading>
+    　<Heading size="lg" mb={2}>時間割管理</Heading>
       <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
           ホームに戻る
       </Button>
