@@ -24,7 +24,7 @@ type Student = {
 
 type StudentsProps = {
   onNavigate: React.Dispatch<
-    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login" | "signup">
+    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login" | "signup" | 'progress'>
   >;
   currentUserId: string;
 };

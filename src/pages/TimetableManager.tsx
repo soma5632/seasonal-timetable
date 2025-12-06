@@ -68,7 +68,7 @@ type FinalLesson = {
 type TimetableManagerProps = {
   onNavigate: React.Dispatch<
     React.SetStateAction<
-      "home" | "students" | "teachers" | "timetable" | "term" | "login" | "signup"
+      "home" | "students" | "teachers" | "timetable" | "term" | "login" | "signup" | 'progress'
     >
   >;
   currentUserId: string;
@@ -455,9 +455,12 @@ export default function TimetableManager({
 
   return (
     <Box p={4}>
-    　<Heading size="lg" mb={2}>ターム管理</Heading>
+    　<Heading size="lg" mb={2}>管理</Heading>
       <Button onClick={() => onNavigate("home")} colorScheme="teal" mb={4}>
           ホームに戻る
+      </Button>
+      <Button onClick={() => onNavigate("progress")} colorScheme="purple" mb={4}>
+          進捗確認
       </Button>
 
       {/* ===== ターム選択 UI ===== */}

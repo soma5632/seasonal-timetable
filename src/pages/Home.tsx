@@ -13,7 +13,7 @@ import {
 
 type Props = {
   onNavigate: (
-    page: 'home' | 'students' | 'teachers' | 'timetable' | 'term' | "login" | "signup"
+    page: 'home' | 'students' | 'teachers' | 'timetable' | 'term' | "login" | "signup" | "progress"
   ) => void;
   currentUserId: string; // ★ 追加
   onLogout: () => void;  // ★ ログアウト用コールバック

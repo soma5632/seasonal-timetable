@@ -164,7 +164,7 @@ const CELL_STYLE = {
 type TermManagerProps = {
   onNavigate: React.Dispatch<
     React.SetStateAction<
-      "home" | "students" | "teachers" | "timetable" | "term" | "login" | "signup"
+      "home" | "students" | "teachers" | "timetable" | "term" | "login" | "signup" | 'progress'
     >
   >;
   currentUserId: string;

@@ -17,7 +17,7 @@ type ScheduleItem = {
 
 type TeachersProps = {
   onNavigate: React.Dispatch<
-    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login" | "signup">
+    React.SetStateAction<"home" | "timetable" | "students" | "teachers" | "term" | "login" | "signup" | 'progress'>
   >;
   currentUserId: string;
 };

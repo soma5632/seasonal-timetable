@@ -5,7 +5,7 @@ import { useUserData } from "../hooks/useUserData";
 type SignUpProps = {
   onNavigate: React.Dispatch<
     React.SetStateAction<
-      "login" | "signup" | "home" | "students" | "teachers" | "timetable" | "term"
+      "login" | "signup" | "home" | "students" | "teachers" | "timetable" | "term" | "progress"
     >
   >;
 };

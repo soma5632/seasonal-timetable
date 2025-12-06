@@ -6,7 +6,7 @@ type LoginProps = {
   onLogin: (id: string) => void;
   onNavigate: React.Dispatch<
     React.SetStateAction<
-      "login" | "signup" | "home" | "students" | "teachers" | "timetable" | "term"
+      "login" | "signup" | "home" | "students" | "teachers" | "timetable" | "term" | "progress"
     >
   >;
 };
