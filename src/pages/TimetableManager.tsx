@@ -384,25 +384,25 @@ export default function TimetableManager({
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      toast({
-          title: "デバッグ",
-          description: `finalLessons: ${data.finalLessons?.length ?? 0}件`,
-          status: "info",
-          duration: 2000,
-      });
-
-
       const finalLessons: FinalLesson[] = data.finalLessons ?? [];
+
+      // ✅ timetablePreview に反映
       const preview = lessonsToTimetable(finalLessons);
       setTimetablePreview(preview);
 
+      // ✅ finalLessons を userData に保存
+      saveUserData({
+        timetableFinalLessons: finalLessons,
+      });
+
       toast({
         title: "生成完了",
-        description: "時間割の生成が完了しました。プレビューで確認・編集できます。",
+        description: "時間割の生成が完了しました。",
         status: "success",
         duration: 2500,
         isClosable: true,
       });
+
     } catch (e: any) {
       toast({
         title: "生成失敗",
@@ -418,26 +418,30 @@ export default function TimetableManager({
 
   // ===== 保存処理 =====
   function applyAndSave() {
-    try {
-      const merged = mergeTimetables(userData?.timetable || {}, timetablePreview);
-      saveUserData({ timetable: merged });
+      try {
+        const merged = mergeTimetables(userData?.timetable || {}, timetablePreview);
 
-      toast({
-        title: "保存しました",
-        description: "生成した時間割を適用して保存しました。",
-        status: "success",
-        duration: 2500,
-        isClosable: true,
-      });
-    } catch {
-      toast({
-        title: "保存失敗",
-        description: "保存時にエラーが発生しました。",
-        status: "error",
-        duration: 3500,
-        isClosable: true,
-      });
-    }
+        saveUserData({
+          timetable: merged,
+          timetableFinalLessons: userData?.timetableFinalLessons ?? [],
+        });
+
+        toast({
+          title: "保存しました",
+          description: "生成した時間割を適用して保存しました。",
+          status: "success",
+          duration: 2500,
+          isClosable: true,
+        });
+      } catch {
+        toast({
+          title: "保存失敗",
+          description: "保存時にエラーが発生しました。",
+          status: "error",
+          duration: 3500,
+          isClosable: true,
+        });
+      }
   }
 
   // ===== ヘッダセル表示 =====
